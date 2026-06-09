@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Main Center - Deployment Agent</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <meta name="description" content="Central Control Plane for Mini CD and Environment Variable Management">
+</head>
+<body>
+    <div class="background-effects">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <div class="app-container">
+        <nav class="sidebar glass-panel">
+            <div class="logo">
+                <h2>MainCenter</h2>
+                <div class="pulse-indicator"></div>
+            </div>
+            <ul class="nav-links">
+                <li class="active" data-tab="dashboard">Dashboard</li>
+                <li data-tab="servers">Servers</li>
+                <li data-tab="projects">Projects & Envs</li>
+                <li data-tab="environments">Environments</li>
+                <li data-tab="templates">Action Templates</li>
+                <li data-tab="settings">Settings</li>
+            </ul>
+        </nav>
+
+        <main class="content-area glass-panel">
+            <!-- Dashboard View -->
+            <section id="dashboard" class="view active">
+                <header class="view-header">
+                    <h1>Dashboard</h1>
+                    <p>Overview of all deployed services and health statuses.</p>
+                </header>
+                <div class="stats-grid" id="dashboard-stats">
+                    <!-- Stats populated by JS -->
+                </div>
+                <div class="health-grid" id="health-grid">
+                    <!-- Health cards populated by JS -->
+                </div>
+            </section>
+
+            <!-- Servers View -->
+            <section id="servers" class="view">
+                <header class="view-header">
+                    <h1>Target Servers</h1>
+                    <button class="btn btn-primary" onclick="app.openServerModal()">+ Add Server</button>
+                </header>
+                <div class="table-container">
+                    <table class="data-table" id="servers-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Hostname/IP</th>
+                                <th>User</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Projects View -->
+            <div id="projects" class="view">
+                <div class="panel-header">
+                    <h2>Projects</h2>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary" onclick="app.openGuideModal()">Integration Guide</button>
+                        <button class="btn btn-primary" onclick="app.openProjectModal()">+ Add Project</button>
+                    </div>
+                </div>
+                <div class="glass-panel">
+                    <table id="projects-table" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Server</th>
+                                <th>Container</th>
+                                <th>Webhook Token</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Environments View -->
+            <div id="environments" class="view">
+                <div class="panel-header">
+                    <h2>Global Environments</h2>
+                    <button class="btn btn-primary" onclick="app.openEnvironmentModal()">+ Add Environment</button>
+                </div>
+                <div class="glass-panel">
+                    <table id="environments-table" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Key</th>
+                                <th>Value</th>
+                                <th>Description</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Templates View -->
+            <div id="templates" class="view">
+                <div class="panel-header">
+                    <h2>Action Templates</h2>
+                    <button class="btn btn-primary" onclick="app.openTemplateModal()">+ Add Template</button>
+                </div>
+                <div class="glass-panel">
+                    <table id="templates-table" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <section id="settings" class="view">
+                <header class="view-header">
+                    <h1>Settings</h1>
+                </header>
+                <div class="settings-card">
+                    <h3>Self Update</h3>
+                    <p>Trigger a self-update for this agent.</p>
+                    <button class="btn btn-danger" onclick="app.triggerSelfUpdate()">Update Agent</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="server-modal" class="modal-overlay">
+        <div class="modal glass-panel">
+            <h2 id="server-modal-title">Add Server</h2>
+            <form id="server-form">
+                <input type="hidden" id="server-id">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="server-name" required placeholder="e.g. Production 1">
+                </div>
+                <div class="form-group">
+                    <label>IP / Hostname</label>
+                    <input type="text" id="server-ip" required placeholder="192.168.1.10">
+                </div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="server-user" required placeholder="ubuntu">
+                </div>
+                <div class="form-group">
+                    <label>SSH Private Key (Optional)</label>
+                    <textarea id="server-key" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Password (Optional)</label>
+                    <input type="password" id="server-pass" placeholder="Password (if no key)">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Server</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="project-modal" class="modal-overlay">
+        <div class="modal modal-lg glass-panel">
+            <h2 id="project-modal-title">Add Project</h2>
+            <form id="project-form">
+                <input type="hidden" id="project-id">
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Project Name</label>
+                        <input type="text" id="project-name" required placeholder="My Web App">
+                    </div>
+                    <div class="form-group">
+                        <label>Target Server</label>
+                        <select id="project-server" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Docker Image</label>
+                        <input type="text" id="project-image" required placeholder="ghcr.io/user/repo:latest">
+                    </div>
+                    <div class="form-group">
+                        <label>Container Name</label>
+                        <input type="text" id="project-container" required placeholder="my_web_app">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Environment Variables</label>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">You can select from global environments or add custom ones.</p>
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                        <select id="env-select-dropdown" style="flex: 1; padding: 8px; border-radius: 4px; background: rgba(0,0,0,0.3); color: #fff; border: 1px solid var(--border-glass);">
+                            <option value="">Select an environment to add...</option>
+                        </select>
+                        <button type="button" class="btn btn-secondary" onclick="app.addEnvFromPool()">Add from Pool</button>
+                        <button type="button" class="btn btn-secondary" onclick="app.addEnvRow()">Add Custom</button>
+                    </div>
+                    <div id="env-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto;">
+                        <!-- Env rows added here -->
+                    </div>
+                </div>
+
+                <div class="modal-actions mt-2">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Project</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Template Modal (For editing template content) -->
+    <div id="template-edit-modal" class="modal-overlay">
+        <div class="modal modal-lg glass-panel">
+            <h2 id="template-edit-title">Add Template</h2>
+            <form id="template-form">
+                <input type="hidden" id="template-id">
+                <div class="form-group">
+                    <label>Template Name</label>
+                    <input type="text" id="template-name" required placeholder="e.g. Node.js Backend">
+                </div>
+                <div class="form-group">
+                    <label>YAML Content</label>
+                    <textarea id="template-content" rows="15" required style="font-family: monospace;" placeholder="Use {{WEBHOOK_TOKEN}} where the token should go."></textarea>
+                </div>
+                <div class="modal-actions mt-2">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Template</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Environment Edit Modal -->
+    <div id="environment-modal" class="modal-overlay">
+        <div class="modal glass-panel">
+            <h2 id="environment-title">Add Environment</h2>
+            <form id="environment-form">
+                <input type="hidden" id="environment-id">
+                <div class="form-group">
+                    <label>Key</label>
+                    <input type="text" id="environment-key" required placeholder="e.g. DATABASE_URL">
+                </div>
+                <div class="form-group">
+                    <label>Value</label>
+                    <input type="text" id="environment-value" required placeholder="Value">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="environment-description" placeholder="Optional notes">
+                </div>
+                <div class="modal-actions mt-2">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Environment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Integration Guide Modal -->
+    <div id="guide-modal" class="modal-overlay">
+        <div class="modal modal-lg glass-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 style="margin-bottom: 0;">GitHub Action Integration Guide</h2>
+                <button class="btn btn-sm btn-secondary" onclick="app.closeModals()">Close</button>
+            </div>
+            <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+                <div class="form-group" style="flex: 1; margin: 0;">
+                    <label>Select Project</label>
+                    <select id="guide-project" onchange="app.generateGuideCode()"></select>
+                </div>
+                <div class="form-group" style="flex: 1; margin: 0;">
+                    <label>Select Template</label>
+                    <select id="guide-template" onchange="app.generateGuideCode()"></select>
+                </div>
+            </div>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">Copy this YAML and use it in your project's <code>.github/workflows/deploy.yml</code>.</p>
+            <pre id="guide-code" style="background: rgba(0,0,0,0.5); padding: 16px; border-radius: 8px; overflow-x: auto; color: #e2e8f0; font-size: 13px; line-height: 1.5; border: 1px solid var(--border-glass); min-height: 100px;">Please select a project and a template.</pre>
+            <div class="modal-actions mt-2">
+                <button class="btn btn-primary" onclick="app.copyGuideCode()">Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast">Message</div>
+
+    <script src="app.js"></script>
+</body>
+</html>
