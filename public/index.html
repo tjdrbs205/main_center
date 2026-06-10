@@ -181,7 +181,10 @@
 
     <div id="project-modal" class="modal-overlay">
         <div class="modal modal-lg glass-panel">
-            <h2 id="project-modal-title">Add Project</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 id="project-modal-title" style="margin: 0;">Add Project</h2>
+                <button type="button" id="btn-rotate-token" class="btn btn-sm btn-danger" style="display: none;" onclick="app.rotateProjectToken()">Rotate Webhook Token</button>
+            </div>
             <form id="project-form">
                 <input type="hidden" id="project-id">
                 <div class="grid-2">

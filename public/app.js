@@ -39,8 +39,8 @@ const app = {
     },
 
     // --- API Calls ---
-    async api(endpoint, method = 'GET', data = null) {
-        const options = { method, headers: { 'Content-Type': 'application/json' } };
+    async api(endpoint, method = 'GET', data = null, customHeaders = {}) {
+        const options = { method, headers: { 'Content-Type': 'application/json', ...customHeaders } };
         if (data) options.body = JSON.stringify(data);
         
         try {
@@ -236,6 +236,7 @@ const app = {
         document.getElementById('project-form').reset();
         document.getElementById('project-id').value = '';
         document.getElementById('env-list').innerHTML = '';
+        document.getElementById('btn-rotate-token').style.display = 'none';
         this.addEnvRow();
         document.getElementById('project-modal-title').innerText = 'Add Project';
         document.getElementById('project-modal').classList.add('active');
@@ -256,6 +257,7 @@ const app = {
             this.addEnvRow();
         }
 
+        document.getElementById('btn-rotate-token').style.display = 'block';
         document.getElementById('project-modal-title').innerText = 'Edit Project';
         document.getElementById('project-modal').classList.add('active');
     },
@@ -305,6 +307,16 @@ const app = {
         if(confirm('Are you sure you want to delete this project?')) {
             await this.api(`projects/${id}`, 'DELETE');
             this.showToast('Project deleted.');
+            this.fetchProjects();
+        }
+    },
+
+    async rotateProjectToken() {
+        const id = document.getElementById('project-id').value;
+        if (!id) return;
+        if(confirm('Are you sure you want to rotate the webhook token? The old token will stop working immediately.')) {
+            await this.api(`projects/${id}/rotate-token`, 'POST');
+            this.showToast('Webhook token rotated successfully.');
             this.fetchProjects();
         }
     },
@@ -449,10 +461,9 @@ const app = {
         const t = this.templates.find(x => x.id == tmpId);
         if (!t) return;
 
-        const url = window.location.origin + '/api/webhook/deploy/' + token;
-        // Basic replacement of {{WEBHOOK_TOKEN}} or {{WEBHOOK_URL}} if user used them
-        let result = t.content.replace(/\{\{WEBHOOK_TOKEN\}\}/g, token);
-        result = result.replace(/\{\{WEBHOOK_URL\}\}/g, url);
+        const url = window.location.origin + '/api/webhook/deploy';
+        let result = t.content.replace(/\{\{WEBHOOK_URL\}\}/g, url);
+        result = result.replace(/\{\{WEBHOOK_TOKEN\}\}/g, token);
 
         codeEl.innerText = result;
     },
@@ -468,7 +479,7 @@ const app = {
     async triggerDeploy(token) {
         this.showToast('Deploy triggered...', false);
         try {
-            await this.api(`webhook/deploy/${token}`, 'POST');
+            await this.api('webhook/deploy', 'POST', null, { 'Authorization': `Bearer ${token}` });
             this.showToast('Deploy successful!');
             this.fetchHealth();
         } catch(e) {
@@ -477,9 +488,15 @@ const app = {
     },
 
     async triggerSelfUpdate() {
+        const token = prompt('Enter the Agent Secret Token to authorize the self-update:');
+        if(!token) return;
         if(confirm('This will trigger a docker pull and restart of this agent. Continue?')) {
-            await this.api('webhook/self-update', 'POST');
-            this.showToast('Self-update initiated. The service might restart soon.');
+            try {
+                await this.api('webhook/self-update', 'POST', null, { 'Authorization': `Bearer ${token}` });
+                this.showToast('Self-update initiated. The service might restart soon.');
+            } catch (e) {
+                this.showToast('Self-update failed or unauthorized.', true);
+            }
         }
     },
 

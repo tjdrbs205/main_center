@@ -26,6 +26,11 @@ export class ProjectController {
     return this.projectService.update(+id, projectData);
   }
 
+  @Post(':id/rotate-token')
+  rotateToken(@Param('id') id: string) {
+    return this.projectService.rotateToken(+id);
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.projectService.remove(+id);

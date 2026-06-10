@@ -37,6 +37,12 @@ export class ProjectService {
     return this.projectRepository.save(updated);
   }
 
+  async rotateToken(id: number): Promise<Project> {
+    const project = await this.findOne(id);
+    project.webhookToken = randomBytes(16).toString('hex');
+    return this.projectRepository.save(project);
+  }
+
   async remove(id: number): Promise<void> {
     await this.projectRepository.delete(id);
   }
