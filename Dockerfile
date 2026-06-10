@@ -1,7 +1,7 @@
 FROM node:20-alpine
 
-# Install docker cli and ssh-client for deployment
-RUN apk add --no-cache docker-cli openssh-client
+# Install docker cli, ssh-client, and build tools for node-gyp (better-sqlite3)
+RUN apk add --no-cache docker-cli openssh-client python3 make g++
 
 WORKDIR /app
 
