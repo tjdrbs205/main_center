@@ -559,7 +559,8 @@ services:
         const t = this.templates.find(x => x.id == tmpId);
         if (!t) return;
 
-        const url = window.location.origin + '/api/webhook/deploy';
+        // Nginx translates /deploy directly to /api/webhook/deploy
+        const url = 'https://MAIN_CENTER_URL/deploy';
         let result = t.content.replace(/\{\{WEBHOOK_URL\}\}/g, url);
         result = result.replace(/\{\{WEBHOOK_TOKEN\}\}/g, token);
 

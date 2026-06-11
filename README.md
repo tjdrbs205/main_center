@@ -87,7 +87,7 @@ docker compose up -d --build
 대시보드의 **Settings** 탭에서 Update Agent 버튼을 누르거나, 아래와 같이 Webhook을 쏘면 작동합니다.
 
 ```bash
-curl -X POST http://서버IP:3000/api/webhook/self-update \
+curl -X POST https://MAIN_CENTER_URL/self-update \
   -H "Authorization: Bearer <AGENT_SECRET_TOKEN>"
 ```
 
