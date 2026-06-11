@@ -12,13 +12,15 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { EnvironmentModule } from './environment/environment.module';
 import { TemplateModule } from './template/template.module';
 import { RegistryModule } from './registry/registry.module';
+import { SettingModule } from './setting/setting.module';
+import { Setting } from './setting/setting.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forRoot({
       type: 'better-sqlite3',
       database: 'data/db.sqlite',
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      entities: [__dirname + '/**/*.entity{.ts,.js}', Setting],
       synchronize: true,
     }),
     ScheduleModule.forRoot(),
@@ -34,6 +36,7 @@ import { RegistryModule } from './registry/registry.module';
     EnvironmentModule,
     TemplateModule,
     RegistryModule,
+    SettingModule,
   ],
   controllers: [],
   providers: [],

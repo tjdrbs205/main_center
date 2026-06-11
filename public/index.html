@@ -32,6 +32,11 @@
         </nav>
 
         <main class="content-area glass-panel">
+            <div id="global-warning" class="global-warning" style="display: none;">
+                <span class="warning-icon">⚠️</span>
+                <span><strong>Deployments Disabled:</strong> The <code>AGENT_SECRET_TOKEN</code> is not configured in Settings. All webhooks and deployments are blocked.</span>
+            </div>
+
             <!-- Dashboard View -->
             <section id="dashboard" class="view active">
                 <header class="view-header">
@@ -158,7 +163,20 @@
                 <header class="view-header">
                     <h1>Settings</h1>
                 </header>
+                
                 <div class="settings-card">
+                    <h3>Global Security</h3>
+                    <p>Set the Secret Token required for the Agent's Self-Update webhook and to unlock Project Deployments.</p>
+                    <form id="settings-token-form" style="margin-top: 16px; margin-bottom: 24px;">
+                        <div class="form-group">
+                            <label>AGENT_SECRET_TOKEN</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="password" id="setting-agent-token" placeholder="Enter a secure random string..." style="flex: 1;">
+                                <button type="submit" class="btn btn-primary">Save Token</button>
+                            </div>
+                        </div>
+                    </form>
+                    <hr style="border: none; border-top: 1px solid var(--border-glass); margin: 24px 0;">
                     <h3>Self Update</h3>
                     <p>Trigger a self-update for this agent.</p>
                     <button class="btn btn-danger" onclick="app.triggerSelfUpdate()">Update Agent</button>

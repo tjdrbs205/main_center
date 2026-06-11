@@ -5,6 +5,8 @@ services:
     image: ghcr.io/tjdrbs205/main_center:latest
     container_name: main_center_agent
     restart: unless-stopped
+    environment:
+      - AGENT_SECRET_TOKEN=${AGENT_SECRET_TOKEN:-change_this_to_a_secure_random_string}
     ports:
       - "3000:3000"
     volumes:

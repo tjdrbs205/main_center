@@ -14,6 +14,7 @@ const app = {
         this.fetchProjects();
         this.fetchEnvironments();
         this.fetchTemplates();
+        this.fetchSettings();
         this.fetchHealth();
         
         // Poll health every 30s
@@ -39,6 +40,7 @@ const app = {
         document.getElementById('project-form').addEventListener('submit', this.handleProjectSubmit.bind(this));
         document.getElementById('environment-form').addEventListener('submit', this.handleEnvironmentSubmit.bind(this));
         document.getElementById('template-form').addEventListener('submit', this.handleTemplateSubmit.bind(this));
+        document.getElementById('settings-token-form').addEventListener('submit', this.handleTokenSubmit.bind(this));
     },
 
     // --- API Calls ---
@@ -83,6 +85,25 @@ const app = {
     async fetchTemplates() {
         this.templates = await this.api('template');
         this.renderTemplates();
+    },
+
+    async fetchSettings() {
+        try {
+            const data = await this.api('settings/AGENT_SECRET_TOKEN');
+            document.getElementById('setting-agent-token').value = data.value || '';
+            this.hasSecretToken = !!data.value;
+        } catch(e) {
+            this.hasSecretToken = false;
+        }
+        
+        const warning = document.getElementById('global-warning');
+        if (!this.hasSecretToken) {
+            warning.style.display = 'flex';
+        } else {
+            warning.style.display = 'none';
+        }
+        
+        this.renderProjects(); // Re-render to update deploy button state
     },
 
     async fetchHealth() {
@@ -138,7 +159,7 @@ const app = {
                 <td>${p.containerName}</td>
                 <td class="actions-cell">
                     <button class="btn btn-sm btn-secondary" onclick="app.editProject(${p.id})">Edit</button>
-                    <button class="btn btn-sm btn-primary" onclick="app.triggerDeploy('${p.webhookToken}')">Deploy</button>
+                    <button class="btn btn-sm btn-primary" onclick="app.triggerDeploy('${p.webhookToken}')" ${!this.hasSecretToken ? 'disabled style="opacity:0.5;cursor:not-allowed;" title="Disabled: Set AGENT_SECRET_TOKEN"' : ''}>Deploy</button>
                     <button class="btn btn-sm btn-danger" onclick="app.deleteProject(${p.id})">Delete</button>
                 </td>
             </tr>
@@ -529,6 +550,15 @@ services:
             this.showToast('Template deleted.');
             this.fetchTemplates();
         }
+    },
+
+    // --- Settings & Token ---
+    async handleTokenSubmit(e) {
+        e.preventDefault();
+        const value = document.getElementById('setting-agent-token').value;
+        await this.api('settings/AGENT_SECRET_TOKEN', 'PUT', { value });
+        this.showToast('Global Secret Token saved successfully.');
+        this.fetchSettings();
     },
 
     // --- Integration Guide ---

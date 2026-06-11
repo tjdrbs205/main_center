@@ -1,9 +1,13 @@
 import { Controller, Post, Headers, Body, UnauthorizedException } from '@nestjs/common';
 import { WebhookService } from './webhook.service';
+import { SettingService } from '../setting/setting.service';
 
 @Controller('api/webhook')
 export class WebhookController {
-  constructor(private readonly webhookService: WebhookService) {}
+  constructor(
+    private readonly webhookService: WebhookService,
+    private readonly settingService: SettingService,
+  ) {}
 
   @Post('deploy')
   async deployProject(
@@ -13,6 +17,12 @@ export class WebhookController {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Missing or invalid Authorization header');
     }
+
+    const secretToken = await this.settingService.getValue('AGENT_SECRET_TOKEN');
+    if (!secretToken) {
+      throw new UnauthorizedException('Webhook deployments are disabled because AGENT_SECRET_TOKEN is not set in settings.');
+    }
+
     const token = authHeader.split(' ')[1];
     return this.webhookService.handleDeployWebhook(token, body?.envKeys);
   }
@@ -22,8 +32,14 @@ export class WebhookController {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Missing or invalid Authorization header');
     }
+
+    const secretToken = await this.settingService.getValue('AGENT_SECRET_TOKEN');
+    if (!secretToken) {
+      throw new UnauthorizedException('Webhook deployments are disabled because AGENT_SECRET_TOKEN is not set in settings.');
+    }
+
     const token = authHeader.split(' ')[1];
-    if (token !== process.env.AGENT_SECRET_TOKEN) {
+    if (token !== secretToken) {
       throw new UnauthorizedException('Invalid agent secret token');
     }
     return this.webhookService.handleSelfUpdate();
