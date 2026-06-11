@@ -11,6 +11,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { EnvironmentModule } from './environment/environment.module';
 import { TemplateModule } from './template/template.module';
+import { RegistryModule } from './registry/registry.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { TemplateModule } from './template/template.module';
     HealthModule,
     EnvironmentModule,
     TemplateModule,
+    RegistryModule,
   ],
   controllers: [],
   providers: [],

@@ -53,7 +53,7 @@ export class WebhookService {
   async handleSelfUpdate() {
     this.logger.log('Received self-update webhook. Starting self-update process...');
     
-    const cmd = `docker run --rm -d -v /var/run/docker.sock:/var/run/docker.sock docker sh -c "
+    const cmd = `docker run --rm -d -v /var/run/docker.sock:/var/run/docker.sock -e AGENT_SECRET_TOKEN="${process.env.AGENT_SECRET_TOKEN || ''}" docker sh -c "
       sleep 3;
       IMAGE=\\$(docker inspect --format='{{.Config.Image}}' main_center_agent);
       DATA_PATH=\\$(docker inspect --format='{{range .Mounts}}{{if eq .Destination \\"/app/data\\"}}{{.Source}}{{end}}{{end}}' main_center_agent);

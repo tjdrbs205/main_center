@@ -51,15 +51,31 @@ export class DeployService {
 
   async deployProject(project: Project, envVars: Environment[]) {
     this.logger.log(`Deploying project ${project.name} to ${project.server.ipOrHostname}...`);
+    const projectDir = `~/.main_center_projects/${project.containerName}`;
     
-    const envString = envVars.map(e => `-e ${e.key}="${e.value.replace(/"/g, '\\"')}"`).join(' ');
+    // Build .env content
+    const envContent = envVars.map(e => `${e.key}="${e.value.replace(/"/g, '\\"')}"`).join('\n');
     
-    const commands = [
-      `docker pull ${project.dockerImage}`,
-      `docker stop ${project.containerName} || true`,
-      `docker rm ${project.containerName} || true`,
-      `docker run -d --name ${project.containerName} ${envString} ${project.dockerImage}`
+    // Ensure project has composeYaml, otherwise fallback to simple run
+    if (!project.composeYaml) {
+      throw new Error(`Project ${project.name} does not have a docker-compose.yml defined.`);
+    }
+
+    const commands: string[] = [
+      `mkdir -p ${projectDir}`,
+      `cd ${projectDir}`,
+      `cat << 'EOF' > .env\n${envContent}\nEOF`,
+      `cat << 'EOF' > docker-compose.yml\n${project.composeYaml}\nEOF`
     ];
+
+    if (project.registry) {
+      commands.push(`echo "${project.registry.token}" | docker login ${project.registry.url} -u ${project.registry.username} --password-stdin`);
+    }
+    
+    commands.push(
+      `docker compose pull`,
+      `docker compose up -d`
+    );
 
     const fullCommand = commands.join(' && ');
 

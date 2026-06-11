@@ -1,5 +1,6 @@
 const app = {
     servers: [],
+    registries: [],
     projects: [],
     environments: [],
     templates: [],
@@ -9,6 +10,7 @@ const app = {
     init() {
         this.bindEvents();
         this.fetchServers();
+        this.fetchRegistries();
         this.fetchProjects();
         this.fetchEnvironments();
         this.fetchTemplates();
@@ -33,6 +35,7 @@ const app = {
 
         // Forms
         document.getElementById('server-form').addEventListener('submit', this.handleServerSubmit.bind(this));
+        document.getElementById('registry-form').addEventListener('submit', this.handleRegistrySubmit.bind(this));
         document.getElementById('project-form').addEventListener('submit', this.handleProjectSubmit.bind(this));
         document.getElementById('environment-form').addEventListener('submit', this.handleEnvironmentSubmit.bind(this));
         document.getElementById('template-form').addEventListener('submit', this.handleTemplateSubmit.bind(this));
@@ -57,6 +60,12 @@ const app = {
         this.servers = await this.api('servers');
         this.renderServers();
         this.updateServerDropdown();
+    },
+
+    async fetchRegistries() {
+        this.registries = await this.api('registry');
+        this.renderRegistries();
+        this.updateRegistryDropdown();
     },
 
     async fetchProjects() {
@@ -96,6 +105,21 @@ const app = {
                 </td>
             </tr>
         `).join('') || '<tr><td colspan="4">No servers configured.</td></tr>';
+    },
+
+    renderRegistries() {
+        const tbody = document.querySelector('#registries-table tbody');
+        tbody.innerHTML = this.registries.map(r => `
+            <tr>
+                <td><strong>${r.name}</strong></td>
+                <td>${r.url}</td>
+                <td>${r.username}</td>
+                <td class="actions-cell">
+                    <button class="btn btn-sm btn-secondary" onclick="app.editRegistry(${r.id})">Edit</button>
+                    <button class="btn btn-sm btn-danger" onclick="app.deleteRegistry(${r.id})">Delete</button>
+                </td>
+            </tr>
+        `).join('') || '<tr><td colspan="4">No registries configured.</td></tr>';
     },
 
     renderProjects() {
@@ -153,6 +177,12 @@ const app = {
         const select = document.getElementById('project-server');
         select.innerHTML = '<option value="">Select a server...</option>' + 
             this.servers.map(s => `<option value="${s.id}">${s.name} (${s.ipOrHostname})</option>`).join('');
+    },
+
+    updateRegistryDropdown() {
+        const select = document.getElementById('project-registry');
+        select.innerHTML = '<option value="">None (Public Image)</option>' + 
+            this.registries.map(r => `<option value="${r.id}">${r.name} (${r.url})</option>`).join('');
     },
 
     updateEnvDropdowns() {
@@ -232,11 +262,69 @@ const app = {
         }
     },
 
+    // --- Registries CRUD ---
+    openRegistryModal() {
+        document.getElementById('registry-form').reset();
+        document.getElementById('registry-id').value = '';
+        document.getElementById('registry-modal-title').innerText = 'Add Registry';
+        document.getElementById('registry-modal').classList.add('active');
+    },
+
+    async editRegistry(id) {
+        const registry = await this.api(`registry/${id}`);
+        document.getElementById('registry-id').value = registry.id;
+        document.getElementById('registry-name').value = registry.name;
+        document.getElementById('registry-url').value = registry.url;
+        document.getElementById('registry-user').value = registry.username;
+        document.getElementById('registry-pass').value = registry.token;
+        document.getElementById('registry-modal-title').innerText = 'Edit Registry';
+        document.getElementById('registry-modal').classList.add('active');
+    },
+
+    async handleRegistrySubmit(e) {
+        e.preventDefault();
+        const id = document.getElementById('registry-id').value;
+        const data = {
+            name: document.getElementById('registry-name').value,
+            url: document.getElementById('registry-url').value,
+            username: document.getElementById('registry-user').value,
+            token: document.getElementById('registry-pass').value,
+        };
+
+        if (id) await this.api(`registry/${id}`, 'PUT', data);
+        else await this.api('registry', 'POST', data);
+
+        this.showToast(`Registry ${id ? 'updated' : 'added'} successfully.`);
+        this.closeModals();
+        this.fetchRegistries();
+    },
+
+    async deleteRegistry(id) {
+        if(confirm('Are you sure you want to delete this registry?')) {
+            await this.api(`registry/${id}`, 'DELETE');
+            this.showToast('Registry deleted.');
+            this.fetchRegistries();
+        }
+    },
+
     openProjectModal() {
         document.getElementById('project-form').reset();
         document.getElementById('project-id').value = '';
         document.getElementById('env-list').innerHTML = '';
         document.getElementById('btn-rotate-token').style.display = 'none';
+        
+        // Default Compose YAML
+        document.getElementById('project-compose').value = `version: '3.8'
+services:
+  app:
+    image: ghcr.io/username/repo:latest
+    container_name: app_name
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env`;
+
         this.addEnvRow();
         document.getElementById('project-modal-title').innerText = 'Add Project';
         document.getElementById('project-modal').classList.add('active');
@@ -247,8 +335,10 @@ const app = {
         document.getElementById('project-id').value = project.id;
         document.getElementById('project-name').value = project.name;
         document.getElementById('project-server').value = project.server ? project.server.id : '';
-        document.getElementById('project-image').value = project.dockerImage;
-        document.getElementById('project-container').value = project.containerName;
+        document.getElementById('project-registry').value = project.registry ? project.registry.id : '';
+        document.getElementById('project-image').value = project.dockerImage || '';
+        document.getElementById('project-container').value = project.containerName || '';
+        document.getElementById('project-compose').value = project.composeYaml || `version: '3.8'\nservices:\n  app:\n    image: ${project.dockerImage}\n    container_name: ${project.containerName}\n    env_file:\n      - .env`;
         
         document.getElementById('env-list').innerHTML = '';
         if (project.environments && project.environments.length > 0) {
@@ -269,8 +359,16 @@ const app = {
             name: document.getElementById('project-name').value,
             dockerImage: document.getElementById('project-image').value,
             containerName: document.getElementById('project-container').value,
+            composeYaml: document.getElementById('project-compose').value,
             server: { id: document.getElementById('project-server').value }
         };
+
+        const registryId = document.getElementById('project-registry').value;
+        if (registryId) {
+            data.registry = { id: registryId };
+        } else {
+            data.registry = null;
+        }
 
         // Resolve environments
         const envRows = document.querySelectorAll('.env-row');

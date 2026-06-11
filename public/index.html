@@ -23,6 +23,7 @@
             <ul class="nav-links">
                 <li class="active" data-tab="dashboard">Dashboard</li>
                 <li data-tab="servers">Servers</li>
+                <li data-tab="registries">Registries</li>
                 <li data-tab="projects">Projects & Envs</li>
                 <li data-tab="environments">Environments</li>
                 <li data-tab="templates">Action Templates</li>
@@ -58,6 +59,27 @@
                                 <th>Name</th>
                                 <th>Hostname/IP</th>
                                 <th>User</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Registries View -->
+            <section id="registries" class="view">
+                <header class="view-header">
+                    <h1>Docker Registries</h1>
+                    <button class="btn btn-primary" onclick="app.openRegistryModal()">+ Add Registry</button>
+                </header>
+                <div class="table-container">
+                    <table class="data-table" id="registries-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>URL</th>
+                                <th>Username</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -197,13 +219,23 @@
                         <select id="project-server" required></select>
                     </div>
                     <div class="form-group">
+                        <label>Docker Registry (Optional)</label>
+                        <select id="project-registry"></select>
+                    </div>
+                    <div class="form-group">
                         <label>Docker Image</label>
                         <input type="text" id="project-image" required placeholder="ghcr.io/user/repo:latest">
                     </div>
                     <div class="form-group">
-                        <label>Container Name</label>
+                        <label>Container Name (Used as Project Folder)</label>
                         <input type="text" id="project-container" required placeholder="my_web_app">
                     </div>
+                </div>
+
+                <div class="form-group mt-2">
+                    <label>docker-compose.yml</label>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">Write your docker-compose.yml configuration here. Use <code>env_file: [".env"]</code> to inject the variables below.</p>
+                    <textarea id="project-compose" rows="8" required style="font-family: monospace;" placeholder="version: '3.8'\nservices:\n  app:\n    image: my-image:latest\n    env_file: ['.env']"></textarea>
                 </div>
                 
                 <div class="form-group">
@@ -224,6 +256,36 @@
                 <div class="modal-actions mt-2">
                     <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save Project</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Registry Modal -->
+    <div id="registry-modal" class="modal-overlay">
+        <div class="modal glass-panel">
+            <h2 id="registry-modal-title">Add Registry</h2>
+            <form id="registry-form">
+                <input type="hidden" id="registry-id">
+                <div class="form-group">
+                    <label>Registry Name</label>
+                    <input type="text" id="registry-name" required placeholder="e.g. My GHCR">
+                </div>
+                <div class="form-group">
+                    <label>Registry URL</label>
+                    <input type="text" id="registry-url" required placeholder="e.g. ghcr.io">
+                </div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="registry-user" required placeholder="e.g. my-github-username">
+                </div>
+                <div class="form-group">
+                    <label>Token / Password</label>
+                    <input type="password" id="registry-pass" required placeholder="Personal Access Token">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Registry</button>
                 </div>
             </form>
         </div>
