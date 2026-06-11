@@ -8,6 +8,9 @@ export class SettingController {
   @Get(':key')
   async getSetting(@Param('key') key: string) {
     const value = await this.settingService.getValue(key);
+    if (key === 'AGENT_SECRET_TOKEN') {
+      return { key, isSet: !!value };
+    }
     return { key, value: value || '' };
   }
 

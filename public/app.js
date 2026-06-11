@@ -90,8 +90,14 @@ const app = {
     async fetchSettings() {
         try {
             const data = await this.api('settings/AGENT_SECRET_TOKEN');
-            document.getElementById('setting-agent-token').value = data.value || '';
-            this.hasSecretToken = !!data.value;
+            this.hasSecretToken = data.isSet;
+            const tokenInput = document.getElementById('setting-agent-token');
+            if (this.hasSecretToken) {
+                tokenInput.placeholder = "Token is configured (Enter new to override)";
+            } else {
+                tokenInput.placeholder = "Enter a secure random string...";
+            }
+            tokenInput.value = '';
         } catch(e) {
             this.hasSecretToken = false;
         }
@@ -556,8 +562,13 @@ services:
     async handleTokenSubmit(e) {
         e.preventDefault();
         const value = document.getElementById('setting-agent-token').value;
+        if (!value) {
+            this.showToast('Please enter a valid token.', true);
+            return;
+        }
         await this.api('settings/AGENT_SECRET_TOKEN', 'PUT', { value });
         this.showToast('Global Secret Token saved successfully.');
+        document.getElementById('setting-agent-token').value = '';
         this.fetchSettings();
     },
 
