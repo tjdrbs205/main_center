@@ -44,6 +44,30 @@ const app = {
         document.getElementById('token-modal-form').addEventListener('submit', this.handleTokenSubmit.bind(this));
         document.getElementById('settings-ghcr-form').addEventListener('submit', this.handleGhcrSubmit.bind(this));
         document.getElementById('ghcr-modal-form').addEventListener('submit', this.handleGhcrSubmit.bind(this));
+
+        // Real-time YAML sync
+        document.getElementById('project-image').addEventListener('input', this.syncComposeYml.bind(this));
+        document.getElementById('project-container').addEventListener('input', this.syncComposeYml.bind(this));
+    },
+
+    syncComposeYml() {
+        const composeField = document.getElementById('project-compose');
+        const imageInput = document.getElementById('project-image').value;
+        const containerInput = document.getElementById('project-container').value;
+
+        let yaml = composeField.value;
+        
+        // Update image
+        if (imageInput && /\bimage:\s*.*$/m.test(yaml)) {
+            yaml = yaml.replace(/\bimage:\s*.*$/m, `image: ${imageInput}`);
+        }
+        
+        // Update container_name
+        if (containerInput && /\bcontainer_name:\s*.*$/m.test(yaml)) {
+            yaml = yaml.replace(/\bcontainer_name:\s*.*$/m, `container_name: ${containerInput}`);
+        }
+        
+        composeField.value = yaml;
     },
 
     // --- API Calls ---
