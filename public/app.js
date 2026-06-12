@@ -41,6 +41,7 @@ const app = {
         document.getElementById('environment-form').addEventListener('submit', this.handleEnvironmentSubmit.bind(this));
         document.getElementById('template-form').addEventListener('submit', this.handleTemplateSubmit.bind(this));
         document.getElementById('settings-token-form').addEventListener('submit', this.handleTokenSubmit.bind(this));
+        document.getElementById('token-modal-form').addEventListener('submit', this.handleTokenSubmit.bind(this));
     },
 
     // --- API Calls ---
@@ -91,13 +92,14 @@ const app = {
         try {
             const data = await this.api('settings/AGENT_SECRET_TOKEN');
             this.hasSecretToken = data.isSet;
-            const tokenInput = document.getElementById('setting-agent-token');
+            
             if (this.hasSecretToken) {
-                tokenInput.placeholder = "Token is configured (Enter new to override)";
+                document.getElementById('settings-token-unconfigured').style.display = 'none';
+                document.getElementById('settings-token-configured').style.display = 'block';
             } else {
-                tokenInput.placeholder = "Enter a secure random string...";
+                document.getElementById('settings-token-unconfigured').style.display = 'block';
+                document.getElementById('settings-token-configured').style.display = 'none';
             }
-            tokenInput.value = '';
         } catch(e) {
             this.hasSecretToken = false;
         }
@@ -559,16 +561,32 @@ services:
     },
 
     // --- Settings & Token ---
+    openTokenModal() {
+        document.getElementById('token-modal-form').reset();
+        document.getElementById('token-modal').classList.add('active');
+    },
+
     async handleTokenSubmit(e) {
         e.preventDefault();
-        const value = document.getElementById('setting-agent-token').value;
+        
+        const isModal = document.getElementById('token-modal').classList.contains('active');
+        const value = isModal 
+            ? document.getElementById('modal-agent-token').value 
+            : document.getElementById('setting-agent-token').value;
+            
         if (!value) {
             this.showToast('Please enter a valid token.', true);
             return;
         }
         await this.api('settings/AGENT_SECRET_TOKEN', 'PUT', { value });
         this.showToast('Global Secret Token saved successfully.');
-        document.getElementById('setting-agent-token').value = '';
+        
+        if (isModal) {
+            this.closeModals();
+        } else {
+            document.getElementById('setting-agent-token').value = '';
+        }
+        
         this.fetchSettings();
     },
 
