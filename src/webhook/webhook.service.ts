@@ -101,8 +101,8 @@ export class WebhookService {
     }
 
     // Phase 4: Spawn a helper container to restart us with the new image
-    // The image is already pulled, so the helper only needs to stop/rm/run
-    const cmd = `docker run --rm -d -v /var/run/docker.sock:/var/run/docker.sock docker sh -c 'sleep 3 && docker stop main_center_agent && docker rm main_center_agent && docker run -d --name main_center_agent --restart unless-stopped -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock -v ${dataPath}:/app/data ${image}'`;
+    // The image is already pulled, so the helper only needs to stop/rm/run + cleanup
+    const cmd = `docker run --rm -d -v /var/run/docker.sock:/var/run/docker.sock docker sh -c 'sleep 3 && docker stop main_center_agent && docker rm main_center_agent && docker run -d --name main_center_agent --restart unless-stopped -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock -v ${dataPath}:/app/data ${image} && docker image prune -a -f'`;
 
     try {
       await execAsync(cmd);
