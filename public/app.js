@@ -26,9 +26,9 @@ const app = {
         document.querySelectorAll('.nav-links li').forEach(link => {
             link.addEventListener('click', (e) => {
                 document.querySelectorAll('.nav-links li').forEach(l => l.classList.remove('active'));
-                e.target.classList.add('active');
+                link.classList.add('active');
                 
-                const tab = e.target.dataset.tab;
+                const tab = link.dataset.tab;
                 document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
                 document.getElementById(tab).classList.add('active');
             });
@@ -69,8 +69,35 @@ const app = {
 
     async fetchRegistries() {
         this.registries = await this.api('registry');
+        this.checkRegistryExpirations();
         this.renderRegistries();
         this.updateRegistryDropdown();
+    },
+
+    checkRegistryExpirations() {
+        const now = new Date();
+        const expiredRegistries = this.registries.filter(r => {
+            if (!r.expiresAt) return false;
+            return new Date(r.expiresAt) < now;
+        });
+
+        const warningBanner = document.getElementById('registry-warning');
+        const alertBadge = document.getElementById('registries-alert-badge');
+
+        if (expiredRegistries.length > 0) {
+            if (warningBanner) {
+                const names = expiredRegistries.map(r => r.name).join(', ');
+                document.getElementById('registry-warning-text').innerHTML = `<strong>Registry Token Expired:</strong> The token for registry (<strong>${names}</strong>) has expired. Deployments using these registries may fail.`;
+                warningBanner.style.display = 'flex';
+            }
+            if (alertBadge) {
+                alertBadge.innerText = expiredRegistries.length;
+                alertBadge.style.display = 'inline-flex';
+            }
+        } else {
+            if (warningBanner) warningBanner.style.display = 'none';
+            if (alertBadge) alertBadge.style.display = 'none';
+        }
     },
 
     async fetchProjects() {
@@ -161,17 +188,34 @@ const app = {
 
     renderRegistries() {
         const tbody = document.querySelector('#registries-table tbody');
-        tbody.innerHTML = this.registries.map(r => `
-            <tr>
-                <td><strong>${r.name}</strong></td>
-                <td>${r.url}</td>
-                <td>${r.username}</td>
-                <td class="actions-cell">
-                    <button class="btn btn-sm btn-secondary" onclick="app.editRegistry(${r.id})">Edit</button>
-                    <button class="btn btn-sm btn-danger" onclick="app.deleteRegistry(${r.id})">Delete</button>
-                </td>
-            </tr>
-        `).join('') || '<tr><td colspan="4">No registries configured.</td></tr>';
+        const now = new Date();
+        tbody.innerHTML = this.registries.map(r => {
+            let expiryHtml = '';
+            if (r.expiresAt) {
+                const d = new Date(r.expiresAt);
+                const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                if (d < now) {
+                    expiryHtml = `<span class="status status-expired">⚠️ Expired (${dateStr})</span>`;
+                } else {
+                    expiryHtml = `<span class="status status-active">✓ Active (Expires: ${dateStr})</span>`;
+                }
+            } else {
+                expiryHtml = `<span class="status status-no-expiry">No Expiration</span>`;
+            }
+
+            return `
+                <tr>
+                    <td><strong>${r.name}</strong></td>
+                    <td>${r.url}</td>
+                    <td>${r.username}</td>
+                    <td>${expiryHtml}</td>
+                    <td class="actions-cell">
+                        <button class="btn btn-sm btn-secondary" onclick="app.editRegistry(${r.id})">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="app.deleteRegistry(${r.id})">Delete</button>
+                    </td>
+                </tr>
+            `;
+        }).join('') || '<tr><td colspan="5">No registries configured.</td></tr>';
     },
 
     renderProjects() {
@@ -318,8 +362,21 @@ const app = {
     openRegistryModal() {
         document.getElementById('registry-form').reset();
         document.getElementById('registry-id').value = '';
+        document.getElementById('registry-expiry-select').value = 'no-expiry';
+        document.getElementById('custom-expiry-container').style.display = 'none';
+        document.getElementById('registry-custom-expires-at').value = '';
         document.getElementById('registry-modal-title').innerText = 'Add Registry';
         document.getElementById('registry-modal').classList.add('active');
+    },
+
+    handleExpiryChange() {
+        const select = document.getElementById('registry-expiry-select');
+        const container = document.getElementById('custom-expiry-container');
+        if (select.value === 'custom') {
+            container.style.display = 'block';
+        } else {
+            container.style.display = 'none';
+        }
     },
 
     async editRegistry(id) {
@@ -329,6 +386,17 @@ const app = {
         document.getElementById('registry-url').value = registry.url;
         document.getElementById('registry-user').value = registry.username;
         document.getElementById('registry-pass').value = registry.token;
+        if (registry.expiresAt) {
+            document.getElementById('registry-expiry-select').value = 'custom';
+            document.getElementById('custom-expiry-container').style.display = 'block';
+            const d = new Date(registry.expiresAt);
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            document.getElementById('registry-custom-expires-at').value = dateStr;
+        } else {
+            document.getElementById('registry-expiry-select').value = 'no-expiry';
+            document.getElementById('custom-expiry-container').style.display = 'none';
+            document.getElementById('registry-custom-expires-at').value = '';
+        }
         document.getElementById('registry-modal-title').innerText = 'Edit Registry';
         document.getElementById('registry-modal').classList.add('active');
     },
@@ -336,11 +404,25 @@ const app = {
     async handleRegistrySubmit(e) {
         e.preventDefault();
         const id = document.getElementById('registry-id').value;
+        const expirySelect = document.getElementById('registry-expiry-select').value;
+        
+        let expiresAt = null;
+        if (expirySelect === 'custom') {
+            const customDate = document.getElementById('registry-custom-expires-at').value;
+            expiresAt = customDate ? new Date(customDate).toISOString() : null;
+        } else if (expirySelect !== 'no-expiry') {
+            const days = parseInt(expirySelect, 10);
+            const d = new Date();
+            d.setDate(d.getDate() + days);
+            expiresAt = d.toISOString();
+        }
+
         const data = {
             name: document.getElementById('registry-name').value,
             url: document.getElementById('registry-url').value,
             username: document.getElementById('registry-user').value,
             token: document.getElementById('registry-pass').value,
+            expiresAt
         };
 
         if (id) await this.api(`registry/${id}`, 'PUT', data);

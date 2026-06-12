@@ -69,6 +69,9 @@ export class DeployService {
     ];
 
     if (project.registry) {
+      if (project.registry.expiresAt && new Date(project.registry.expiresAt) < new Date()) {
+        this.logger.warn(`Registry '${project.registry.name}' token has expired (Expired at: ${project.registry.expiresAt}).`);
+      }
       commands.push(`echo "${project.registry.token}" | docker login ${project.registry.url} -u ${project.registry.username} --password-stdin`);
     }
     

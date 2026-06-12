@@ -290,7 +290,7 @@ body {
     font-weight: 500;
 }
 
-input[type="text"], input[type="password"], select, textarea {
+input[type="text"], input[type="password"], input[type="date"], select, textarea {
     width: 100%;
     padding: 12px 16px;
     background: rgba(0, 0, 0, 0.2);
@@ -478,6 +478,49 @@ textarea {
     color: var(--text-primary);
 }
 .global-warning .warning-icon { font-size: 20px; }
+
+/* Registry warning banner */
+.registry-warning {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-left: 4px solid #f59e0b;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-primary);
+}
+.registry-warning .warning-icon { font-size: 20px; }
+
+/* Alert Badge */
+.alert-badge {
+    background: var(--danger);
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: bold;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+/* Expiry Status Badges */
+.status-expired {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger);
+}
+.status-active {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+}
+.status-no-expiry {
+    background: rgba(148, 163, 184, 0.15);
+    color: var(--text-secondary);
+}
 
 /* Responsive Design */
 @media (max-width: 768px) {

@@ -17,6 +17,9 @@ export class Registry {
   @Column()
   token: string;
 
+  @Column({ type: 'datetime', nullable: true })
+  expiresAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
