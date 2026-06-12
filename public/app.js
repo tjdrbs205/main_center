@@ -42,6 +42,8 @@ const app = {
         document.getElementById('template-form').addEventListener('submit', this.handleTemplateSubmit.bind(this));
         document.getElementById('settings-token-form').addEventListener('submit', this.handleTokenSubmit.bind(this));
         document.getElementById('token-modal-form').addEventListener('submit', this.handleTokenSubmit.bind(this));
+        document.getElementById('settings-ghcr-form').addEventListener('submit', this.handleGhcrSubmit.bind(this));
+        document.getElementById('ghcr-modal-form').addEventListener('submit', this.handleGhcrSubmit.bind(this));
     },
 
     // --- API Calls ---
@@ -89,6 +91,7 @@ const app = {
     },
 
     async fetchSettings() {
+        // Fetch AGENT_SECRET_TOKEN status
         try {
             const data = await this.api('settings/AGENT_SECRET_TOKEN');
             this.hasSecretToken = data.isSet;
@@ -104,14 +107,34 @@ const app = {
             this.hasSecretToken = false;
         }
         
-        const warning = document.getElementById('global-warning');
-        if (!this.hasSecretToken) {
-            warning.style.display = 'flex';
-        } else {
-            warning.style.display = 'none';
+        // Fetch GHCR credentials status
+        try {
+            const [userRes, tokenRes] = await Promise.all([
+                this.api('settings/GHCR_USERNAME'),
+                this.api('settings/GHCR_TOKEN'),
+            ]);
+            this.hasGhcr = !!(userRes.value && tokenRes.isSet);
+            
+            if (this.hasGhcr) {
+                document.getElementById('settings-ghcr-unconfigured').style.display = 'none';
+                document.getElementById('settings-ghcr-configured').style.display = 'block';
+            } else {
+                document.getElementById('settings-ghcr-unconfigured').style.display = 'block';
+                document.getElementById('settings-ghcr-configured').style.display = 'none';
+            }
+        } catch(e) {
+            this.hasGhcr = false;
         }
         
-        this.renderProjects(); // Re-render to update deploy button state
+        // Global warning banner
+        const warning = document.getElementById('global-warning');
+        warning.style.display = this.hasSecretToken ? 'none' : 'flex';
+        
+        // Self-update GHCR warning
+        const ghcrWarning = document.getElementById('selfupdate-ghcr-warning');
+        ghcrWarning.style.display = this.hasGhcr ? 'none' : 'flex';
+        
+        this.renderProjects();
     },
 
     async fetchHealth() {
@@ -566,6 +589,11 @@ services:
         document.getElementById('token-modal').classList.add('active');
     },
 
+    openGhcrModal() {
+        document.getElementById('ghcr-modal-form').reset();
+        document.getElementById('ghcr-modal').classList.add('active');
+    },
+
     async handleTokenSubmit(e) {
         e.preventDefault();
         
@@ -585,6 +613,36 @@ services:
             this.closeModals();
         } else {
             document.getElementById('setting-agent-token').value = '';
+        }
+        
+        this.fetchSettings();
+    },
+
+    async handleGhcrSubmit(e) {
+        e.preventDefault();
+        
+        const isModal = document.getElementById('ghcr-modal').classList.contains('active');
+        const username = isModal
+            ? document.getElementById('modal-ghcr-username').value
+            : document.getElementById('setting-ghcr-username').value;
+        const token = isModal
+            ? document.getElementById('modal-ghcr-token').value
+            : document.getElementById('setting-ghcr-token').value;
+            
+        if (!username || !token) {
+            this.showToast('Please fill in both Username and Token.', true);
+            return;
+        }
+        
+        await this.api('settings/GHCR_USERNAME', 'PUT', { value: username });
+        await this.api('settings/GHCR_TOKEN', 'PUT', { value: token });
+        this.showToast('GHCR credentials saved successfully.');
+        
+        if (isModal) {
+            this.closeModals();
+        } else {
+            document.getElementById('setting-ghcr-username').value = '';
+            document.getElementById('setting-ghcr-token').value = '';
         }
         
         this.fetchSettings();

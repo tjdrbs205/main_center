@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { ProjectService } from '../project/project.service';
 import { EnvironmentService } from '../environment/environment.service';
 import { DeployService } from '../deploy/deploy.service';
-import { RegistryService } from '../registry/registry.service';
+import { SettingService } from '../setting/setting.service';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -16,7 +16,7 @@ export class WebhookService {
     private readonly projectService: ProjectService,
     private readonly environmentService: EnvironmentService,
     private readonly deployService: DeployService,
-    private readonly registryService: RegistryService,
+    private readonly settingService: SettingService,
   ) {}
 
   async handleDeployWebhook(token: string, envKeysString?: string) {
@@ -54,38 +54,63 @@ export class WebhookService {
 
   async handleSelfUpdate() {
     this.logger.log('Received self-update webhook. Starting self-update process...');
-    
-    let loginCmd = '';
+
+    // Phase 1: Authenticate with ghcr.io using credentials from Settings
     try {
-      const registries = await this.registryService.findAll();
-      const ghcr = registries.find(r => r.url.includes('ghcr.io'));
-      if (ghcr) {
-        // Use single quotes inside the shell command to prevent premature variable expansion, but we need to safely pass credentials
-        loginCmd = `docker login ghcr.io -u "${ghcr.username}" -p "${ghcr.token}"; `;
-        this.logger.log('Found ghcr.io registry credentials. Will attempt to authenticate before pull.');
+      const ghcrUser = await this.settingService.getValue('GHCR_USERNAME');
+      const ghcrToken = await this.settingService.getValue('GHCR_TOKEN');
+      if (ghcrUser && ghcrToken) {
+        const user = ghcrUser.replace(/'/g, "'\\''");
+        const token = ghcrToken.replace(/'/g, "'\\''");
+        await execAsync(`echo '${token}' | docker login ghcr.io -u '${user}' --password-stdin`);
+        this.logger.log('Authenticated with ghcr.io successfully.');
+      } else {
+        this.logger.warn('GHCR credentials not configured in Settings. Pull may fail for private images.');
       }
     } catch (e) {
-      this.logger.warn('Failed to fetch registries for self-update', e);
+      this.logger.warn('Registry login failed, attempting pull without auth...', e);
     }
-    
-    const cmd = `docker run --rm -d -v /var/run/docker.sock:/var/run/docker.sock docker sh -c "
-      sleep 3;
-      IMAGE=\\$(docker inspect --format='{{.Config.Image}}' main_center_agent);
-      DATA_PATH=\\$(docker inspect --format='{{range .Mounts}}{{if eq .Destination \\"/app/data\\"}}{{.Source}}{{end}}{{end}}' main_center_agent);
-      ${loginCmd}
-      docker pull \\$IMAGE;
-      docker stop main_center_agent;
-      docker rm main_center_agent;
-      docker run -d --name main_center_agent --restart unless-stopped -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock -v \\$DATA_PATH:/app/data \\$IMAGE
-    "`;
-    
+
+    // Phase 2: Inspect the current container to get image name and data volume path
+    let image: string;
+    let dataPath: string;
     try {
-       await execAsync(cmd);
-       this.logger.log('Self update background process initiated successfully.');
-       return { status: 'Self-update initiated' };
+      const { stdout: imageOut } = await execAsync(
+        "docker inspect --format='{{.Config.Image}}' main_center_agent",
+      );
+      image = imageOut.trim().replace(/^'|'$/g, '');
+
+      const { stdout: dataOut } = await execAsync(
+        `docker inspect --format='{{range .Mounts}}{{if eq .Destination "/app/data"}}{{.Source}}{{end}}{{end}}' main_center_agent`,
+      );
+      dataPath = dataOut.trim().replace(/^'|'$/g, '');
+      this.logger.log(`Current image: ${image}, data path: ${dataPath}`);
     } catch (e) {
-       this.logger.error('Self update failed', e);
-       throw e;
+      this.logger.error('Failed to inspect running container', e);
+      throw e;
+    }
+
+    // Phase 3: Pull the latest image (uses credentials from Phase 1)
+    this.logger.log(`Pulling latest image: ${image}`);
+    try {
+      await execAsync(`docker pull ${image}`);
+      this.logger.log('Latest image pulled successfully.');
+    } catch (e) {
+      this.logger.error('Failed to pull latest image', e);
+      throw e;
+    }
+
+    // Phase 4: Spawn a helper container to restart us with the new image
+    // The image is already pulled, so the helper only needs to stop/rm/run
+    const cmd = `docker run --rm -d -v /var/run/docker.sock:/var/run/docker.sock docker sh -c 'sleep 3 && docker stop main_center_agent && docker rm main_center_agent && docker run -d --name main_center_agent --restart unless-stopped -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock -v ${dataPath}:/app/data ${image}'`;
+
+    try {
+      await execAsync(cmd);
+      this.logger.log('Self-update background process initiated successfully.');
+      return { status: 'Self-update initiated' };
+    } catch (e) {
+      this.logger.error('Self-update failed', e);
+      throw e;
     }
   }
 }
