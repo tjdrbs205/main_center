@@ -226,7 +226,7 @@ const app = {
 
     async toggleSystemAutoUpdate(e) {
         const isEnabled = e.target.checked;
-        await this.api('settings', 'POST', { key: 'MAIN_CENTER_AUTO_UPDATE', value: isEnabled ? 'true' : 'false' });
+        await this.api(`settings/MAIN_CENTER_AUTO_UPDATE`, 'PUT', { value: isEnabled ? 'true' : 'false' });
         this.showToast(`Auto update ${isEnabled ? 'enabled' : 'disabled'}.`);
     },
 
