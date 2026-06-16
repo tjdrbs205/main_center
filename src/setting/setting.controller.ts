@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Put, Body, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Param, Post, Put, Body } from '@nestjs/common';
 import { SettingService } from './setting.service';
 
 @Controller('api/settings')
@@ -34,21 +34,7 @@ export class SettingController {
   }
 
   @Post('self-update')
-  async selfUpdate(@Headers('authorization') authHeader: string) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Missing or invalid Authorization header');
-    }
-
-    const secretToken = await this.settingService.getValue('AGENT_SECRET_TOKEN');
-    if (!secretToken) {
-      throw new UnauthorizedException('Self-update disabled because AGENT_SECRET_TOKEN is not set.');
-    }
-
-    const token = authHeader.split(' ')[1];
-    if (token !== secretToken) {
-      throw new UnauthorizedException('Invalid agent secret token');
-    }
-    
+  async selfUpdate() {
     return this.settingService.handleSelfUpdate();
   }
 

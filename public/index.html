@@ -6,6 +6,7 @@
     <title>Main Center - Deployment Agent</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <meta name="description" content="Central Control Plane for Mini CD and Environment Variable Management">
 </head>
 <body>
@@ -30,13 +31,10 @@
         </nav>
 
         <main class="main-content">
-            <div id="no-token-warning" class="no-token-warning" style="display: none;">
-                <span class="warning-icon">⚠️</span>
-                <span><strong>Deployments Disabled:</strong> The <code>AGENT_SECRET_TOKEN</code> is not configured in Settings. All webhooks and deployments are blocked.</span>
-            </div>
+
 
             <!-- Global System Update Banner -->
-            <div id="system-update-banner" class="system-update-banner" style="display: none; background: rgba(56, 189, 248, 0.15); border: 1px solid var(--primary); padding: 12px 20px; border-radius: 8px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="app.switchTab('settings')">
+            <div id="system-update-banner" style="display: none; background: rgba(56, 189, 248, 0.15); border: 1px solid var(--primary); padding: 12px 20px; border-radius: 8px; margin-bottom: 24px; justify-content: space-between; align-items: center; cursor: pointer;" onclick="app.switchTab('settings')">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <i class="fas fa-rocket" style="color: var(--primary); font-size: 20px;"></i>
                     <span style="color: var(--text-primary); font-weight: 500;">A new version of Main Center is available!</span>
@@ -133,32 +131,7 @@
                     <h1>Settings</h1>
                 </header>
                 
-                <div class="settings-card">
-                    <h3>🔐 Webhook Authentication</h3>
-                    <p>Set the Secret Token required for webhook authentication and to unlock deployments.</p>
-                    <div id="settings-token-container" style="margin-top: 16px;">
-                        <div id="settings-token-unconfigured">
-                            <form id="settings-token-form">
-                                <div class="form-group">
-                                    <label>AGENT_SECRET_TOKEN</label>
-                                    <div style="display: flex; gap: 8px;">
-                                        <input type="password" id="setting-agent-token" placeholder="Enter a secure random string..." style="flex: 1;" required>
-                                        <button type="submit" class="btn btn-primary">Save Token</button>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                        <div id="settings-token-configured" style="display: none;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 16px; border-radius: 8px;">
-                                <div style="display: flex; align-items: center; gap: 12px;">
-                                    <span style="color: var(--success); font-size: 20px;">✓</span>
-                                    <span>Token is securely configured.</span>
-                                </div>
-                                <button class="btn btn-secondary" onclick="app.openTokenModal()">Change Token</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+
 
                 <div class="settings-card" style="margin-top: 20px;">
                     <h3>🐳 Self-Update Registry (GHCR)</h3>
@@ -265,6 +238,7 @@
                 <input type="hidden" id="project-id">
                 <div class="grid-2">
                     <div class="form-group">
+                        <label>Project Name</label>
                         <input type="text" id="project-name" required placeholder="My Web App">
                     </div>
                     <div class="form-group">
@@ -367,29 +341,14 @@
         </div>
     </div>
 
-    <!-- Token Modal -->
-    <div id="token-modal" class="modal-overlay">
-        <div class="modal glass-panel">
-            <h2>Change Secret Token</h2>
-            <form id="token-modal-form">
-                <div class="form-group">
-                    <label>New AGENT_SECRET_TOKEN</label>
-                    <input type="password" id="modal-agent-token" placeholder="Enter a secure random string..." required>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
-                </div>
-            </form>
-        </div>
-    </div>
+
 
     <!-- GHCR Credentials Modal -->
     <div id="ghcr-modal" class="modal-overlay">
         <div class="modal glass-panel">
             <h2>Change GHCR Credentials</h2>
             <form id="ghcr-modal-form">
-
+                <div class="form-group">
                     <label>GHCR Username</label>
                     <input type="text" id="modal-ghcr-username" placeholder="GitHub username" required>
                 </div>

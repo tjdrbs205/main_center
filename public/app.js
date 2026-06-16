@@ -1,9 +1,7 @@
 const app = {
     servers: [],
-    registries: [],
     projects: [],
     environments: [],
-    templates: [],
     healthStatus: {},
     currentProjectId: null,
     
@@ -59,8 +57,6 @@ const app = {
         document.getElementById('server-form').addEventListener('submit', this.handleServerSubmit.bind(this));
         document.getElementById('project-form').addEventListener('submit', this.handleProjectSubmit.bind(this));
         document.getElementById('environment-form').addEventListener('submit', this.handleEnvironmentSubmit.bind(this));
-        document.getElementById('settings-token-form').addEventListener('submit', this.handleTokenSubmit.bind(this));
-        document.getElementById('token-modal-form').addEventListener('submit', this.handleTokenSubmit.bind(this));
         document.getElementById('settings-ghcr-form').addEventListener('submit', this.handleGhcrSubmit.bind(this));
         document.getElementById('ghcr-modal-form').addEventListener('submit', this.handleGhcrSubmit.bind(this));
         document.getElementById('initial-setup-form').addEventListener('submit', this.handleInitialSetup.bind(this));
@@ -140,22 +136,6 @@ const app = {
     },
 
     async fetchSettings() {
-        // Fetch AGENT_SECRET_TOKEN status
-        try {
-            const data = await this.api('settings/AGENT_SECRET_TOKEN');
-            this.hasSecretToken = data.isSet;
-            
-            if (this.hasSecretToken) {
-                document.getElementById('settings-token-unconfigured').style.display = 'none';
-                document.getElementById('settings-token-configured').style.display = 'block';
-            } else {
-                document.getElementById('settings-token-unconfigured').style.display = 'block';
-                document.getElementById('settings-token-configured').style.display = 'none';
-            }
-        } catch(e) {
-            this.hasSecretToken = false;
-        }
-        
         // Fetch GHCR credentials status
         try {
             const [userRes, tokenRes] = await Promise.all([
@@ -174,14 +154,6 @@ const app = {
         } catch(e) {
             this.hasGhcr = false;
         }
-        
-        // Global warning banner
-        const warning = document.getElementById('global-warning');
-        warning.style.display = this.hasSecretToken ? 'none' : 'flex';
-        
-        // Self-update GHCR warning
-        const ghcrWarning = document.getElementById('selfupdate-ghcr-warning');
-        ghcrWarning.style.display = this.hasGhcr ? 'none' : 'flex';
         
         this.renderProjects();
     },
@@ -236,31 +208,21 @@ const app = {
         if (!confirm('This will download the latest Main Center image and restart the agent. The UI will become temporarily unavailable. Proceed?')) return;
         
         try {
-            const token = document.getElementById('setting-agent-token').value || localStorage.getItem('agentSecretToken');
-            if (!token) {
-                this.showToast('AGENT_SECRET_TOKEN is required for self update.', 'error');
-                this.switchTab('settings');
-                return;
-            }
-
             const response = await fetch('/api/settings/self-update', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                method: 'POST'
             });
 
             if (response.ok) {
-                this.showToast('Self-update initiated. The system will restart shortly.', 'success');
+                this.showToast('Self-update initiated. The system will restart shortly.');
                 setTimeout(() => {
                     window.location.reload();
                 }, 10000);
             } else {
-                const err = await response.json();
-                this.showToast(`Self-update failed: ${err.message}`, 'error');
+                const txt = await response.text();
+                this.showToast(`Self-update failed: ${txt}`, true);
             }
         } catch (e) {
-            this.showToast('Failed to trigger update.', 'error');
+            this.showToast('Failed to trigger update.', true);
         }
     },
 
@@ -433,7 +395,6 @@ const app = {
         document.getElementById('env-list').innerHTML = '';
         document.getElementById('project-github-repo').value = '';
         document.getElementById('project-auto-update').checked = false;
-        document.getElementById('btn-rotate-token').style.display = 'none';
         
         // Default Compose YAML
         document.getElementById('project-compose').value = `version: '3.8'
@@ -470,7 +431,6 @@ services:
             this.addEnvRow();
         }
 
-        document.getElementById('btn-rotate-token').style.display = 'block';
         document.getElementById('project-modal-title').innerText = 'Edit Project';
         document.getElementById('project-modal').classList.add('active');
     },
@@ -607,39 +567,10 @@ services:
         }
     },
 
-    // --- Settings & Token ---
-    openTokenModal() {
-        document.getElementById('token-modal-form').reset();
-        document.getElementById('token-modal').classList.add('active');
-    },
-
+    // --- Settings ---
     openGhcrModal() {
         document.getElementById('ghcr-modal-form').reset();
         document.getElementById('ghcr-modal').classList.add('active');
-    },
-
-    async handleTokenSubmit(e) {
-        e.preventDefault();
-        
-        const isModal = document.getElementById('token-modal').classList.contains('active');
-        const value = isModal 
-            ? document.getElementById('modal-agent-token').value 
-            : document.getElementById('setting-agent-token').value;
-            
-        if (!value) {
-            this.showToast('Please enter a valid token.', true);
-            return;
-        }
-        await this.api('settings/AGENT_SECRET_TOKEN', 'PUT', { value });
-        this.showToast('Global Secret Token saved successfully.');
-        
-        if (isModal) {
-            this.closeModals();
-        } else {
-            document.getElementById('setting-agent-token').value = '';
-        }
-        
-        this.fetchSettings();
     },
 
     async handleGhcrSubmit(e) {
@@ -766,17 +697,14 @@ jobs:
         }
     },
 
-    async triggerSelfUpdate() {
-        const token = prompt('Enter the Agent Secret Token to authorize the self-update:');
-        if(!token) return;
-        if(confirm('This will trigger a docker pull and restart of this agent. Continue?')) {
-            try {
-                await this.api('settings/self-update', 'POST', null, { 'Authorization': `Bearer ${token}` });
-                this.showToast('Self-update initiated. The service might restart soon.');
-            } catch (e) {
-                this.showToast('Self-update failed or unauthorized.', true);
-            }
-        }
+    switchTab(tabName) {
+        document.querySelectorAll('.nav-links li').forEach(l => {
+            l.classList.remove('active');
+            if (l.dataset.tab === tabName) l.classList.add('active');
+        });
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        const target = document.getElementById(tabName);
+        if (target) target.classList.add('active');
     },
 
     showToast(msg, isError = false) {

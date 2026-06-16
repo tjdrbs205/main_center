@@ -2,17 +2,18 @@
 
 Main Center는 다수의 서버, 도커 프로젝트, 환경변수를 하나의 중앙 UI에서 관리할 수 있게 해주는 **Pull-based CD(Continuous Deployment) 컨트롤 플레인**입니다.
 
-기존의 번거로운 Webhook 세팅 없이, 지정된 GitHub 레포지토리(GHCR)를 주기적으로(10분 간격) 폴링하여 새로운 이미지가 업로드되었을 때 자동으로 대상 서버에 배포(Pull & Up)합니다.
+기본적으로 **Local 네트워크 및 VPN 내부망 환경**에서의 사용을 전제로 설계되었으며, 복잡한 Webhook 세팅이나 외부 포트 개방 없이 안전하게 동작합니다. 지정된 GitHub 레포지토리(GHCR)를 주기적으로(10분 간격) 폴링하여 새로운 이미지가 업로드되었을 때 자동으로 대상 서버에 배포(Pull & Up)합니다.
 
 ---
 
 ## 🚀 주요 기능 (Features)
 
-- **Pull-Based 자동 배포**: 외부에서 Webhook을 쏠 필요가 없습니다. GitHub 레포지토리를 연결해두면, Main Center가 주기적으로 GHCR을 확인하여 새 이미지가 있을 때 스스로 배포합니다.
+- **Pull-Based 자동 배포**: 외부에서 Webhook을 쏠 필요가 전혀 없습니다. GitHub 레포지토리를 연결해두면, Main Center가 주기적으로 GHCR을 확인하여 새 이미지가 있을 때 스스로 배포합니다.
+- **Local/VPN 최적화 (Tokenless)**: 내부망 사용을 전제로 하므로 번거로운 비밀 토큰(Secret Token) 인증 과정을 제거하여 사용 편의성을 극대화했습니다.
 - **Docker Compose 기반 배포**: `docker-compose.yml` 템플릿과 `.env` 파일을 타겟 서버에 자동 생성하여 우아하게 컨테이너를 실행합니다.
 - **글로벌 환경변수 관리**: 여러 프로젝트에서 공통으로 쓰이는 데이터베이스 주소, API 키 등을 전역에서 관리하고 원하는 프로젝트에 손쉽게 주입할 수 있습니다.
 - **GitHub OAuth 통합**: GitHub 로그인으로 내 레포지토리 목록을 쉽게 불러오고, 전역 GHCR 인증(PAT)을 한 번만 설정해 두면 모든 프로젝트 배포에 적용됩니다.
-- **Update (Self-Update)**: Main Center 자체의 업데이트가 감지되면 전역 배너를 통해 알려주며, 클릭 한 번으로 새 버전의 이미지를 당겨오고 불필요한 예전 이미지를 지우며 스스로 재시작합니다.
+- **자동 시스템 업데이트 (Self-Update)**: Main Center 자체의 업데이트가 감지되면 전역 배너를 통해 알려주며, 클릭 한 번으로 퍼블릭 저장소(`ghcr.io/tjdrbs205/main_center:latest`)에서 새 버전의 이미지를 당겨옵니다. 업데이트 시 `docker image prune -a -f` 명령을 통해 불필요한 예전 이미지를 지우며 스스로 재시작합니다.
 
 ---
 
@@ -38,7 +39,7 @@ services:
     volumes:
       # 설정 및 DB 데이터를 영구 보존하기 위함
       - ./data:/app/data
-      # 업데이트(Self-Update) 기능을 위해 도커 소켓 공유
+      # 업데이트(Self-Update) 및 배포를 위해 도커 소켓 공유
       - /var/run/docker.sock:/var/run/docker.sock
 ```
 
@@ -63,8 +64,8 @@ docker compose up -d --build
 
 - **GitHub OAuth 설정**: GitHub Developer Settings에서 OAuth App을 생성하고 Client ID와 Secret을 등록합니다. 이때 설정해야 하는 URL은 다음과 같습니다:
   - **Homepage URL**: `http://<서버IP또는도메인>:3000` (예: `http://192.168.1.10:3000`)
-  - **Authorization callback URL**: `http://<서버IP또는도메인>:3000/api/github/callback` (예: `http://192.168.1.10:3000/api/github/callback`)
-- **GHCR 자격 증명 (PAT)**: GitHub 패스워드 대신 Personal Access Token을 발급받아 입력합니다. (Main Center가 Private 이미지를 당겨오고 최신 다이제스트를 확인할 때 사용합니다.)
+  - **Authorization callback URL**: `http://<서버IP또는도메인>:3000/api/github/callback`
+- **GHCR 자격 증명 (PAT)**: 관리할 도커 프로젝트가 Private 이미지인 경우, GitHub Personal Access Token을 발급받아 입력합니다. (Main Center 자체 시스템 업데이트는 Public 환경이므로 토큰이 불필요합니다.)
 
 ### 2. 대상 서버 등록 (Servers)
 
@@ -85,4 +86,4 @@ docker compose up -d --build
 
 - **Settings** 탭 하단의 **System Updates** 메뉴에서 Main Center 자체의 업데이트를 관리할 수 있습니다.
 - 새로운 버전이 배포되면 화면 상단에 업데이트 알림 배너가 나타납니다.
-- `Enable Auto Update`를 체크해두면 백그라운드에서 주기적으로 확인 후 스스로 패치됩니다.
+- `Enable Auto Update`를 체크해두면 백그라운드에서 10분 주기로 퍼블릭 레포지토리를 확인 후 스스로 패치 및 과거 이미지 클린업(`docker image prune -a -f`)을 진행합니다.
