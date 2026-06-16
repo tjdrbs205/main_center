@@ -1,7 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, ManyToMany, JoinTable } from 'typeorm';
 import { Server } from '../server/server.entity';
 import { Environment } from '../environment/environment.entity';
-import { Registry } from '../registry/registry.entity';
 
 @Entity()
 export class Project {
@@ -17,6 +16,18 @@ export class Project {
   @Column()
   containerName: string;
 
+  @Column({ nullable: true })
+  githubRepo: string;
+
+  @Column({ default: false })
+  autoUpdate: boolean;
+
+  @Column({ nullable: true })
+  lastImageDigest: string;
+
+  @Column({ default: false })
+  updateAvailable: boolean;
+
   @Column()
   webhookToken: string;
 
@@ -26,8 +37,6 @@ export class Project {
   @ManyToOne(() => Server, server => server.projects, { onDelete: 'SET NULL' })
   server: Server;
 
-  @ManyToOne(() => Registry, { onDelete: 'SET NULL', nullable: true })
-  registry: Registry;
 
   @ManyToMany(() => Environment)
   @JoinTable()

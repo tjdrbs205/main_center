@@ -12,11 +12,11 @@ export class ProjectService {
   ) {}
 
   findAll(): Promise<Project[]> {
-    return this.projectRepository.find({ relations: { server: true, environments: true, registry: true } });
+    return this.projectRepository.find({ relations: { server: true, environments: true } });
   }
 
   async findOne(id: number): Promise<Project> {
-    const project = await this.projectRepository.findOne({ where: { id }, relations: { server: true, environments: true, registry: true } });
+    const project = await this.projectRepository.findOne({ where: { id }, relations: { server: true, environments: true } });
     if (!project) {
       throw new NotFoundException(`Project with ID ${id} not found`);
     }
@@ -48,6 +48,6 @@ export class ProjectService {
   }
 
   async findByWebhookToken(token: string): Promise<Project | null> {
-    return this.projectRepository.findOne({ where: { webhookToken: token }, relations: { server: true, environments: true, registry: true } });
+    return this.projectRepository.findOne({ where: { webhookToken: token }, relations: { server: true, environments: true } });
   }
 }

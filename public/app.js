@@ -7,18 +7,39 @@ const app = {
     healthStatus: {},
     currentProjectId: null,
     
-    init() {
+    async init() {
         this.bindEvents();
+        
+        const isSetup = await this.checkSetupStatus();
+        if (!isSetup) return;
+
         this.fetchServers();
-        this.fetchRegistries();
         this.fetchProjects();
         this.fetchEnvironments();
-        this.fetchTemplates();
         this.fetchSettings();
         this.fetchHealth();
+        this.fetchGithubRepos();
+        this.fetchSystemUpdateStatus();
         
-        // Poll health every 30s
-        setInterval(() => this.fetchHealth(), 30000);
+        // Polling for health and updates every 30 seconds
+        setInterval(() => {
+            this.fetchHealth();
+            this.fetchSystemUpdateStatus();
+        }, 30000);
+    },
+
+    async checkSetupStatus() {
+        try {
+            const status = await this.api('settings/status/setup');
+            if (!status.isGithubAppConfigured) {
+                document.getElementById('initial-setup-modal').classList.add('active');
+                return false;
+            }
+            return true;
+        } catch (e) {
+            console.error('Failed to check setup status', e);
+            return true; // fail open to let the rest load if server error
+        }
     },
 
     bindEvents() {
@@ -36,18 +57,33 @@ const app = {
 
         // Forms
         document.getElementById('server-form').addEventListener('submit', this.handleServerSubmit.bind(this));
-        document.getElementById('registry-form').addEventListener('submit', this.handleRegistrySubmit.bind(this));
         document.getElementById('project-form').addEventListener('submit', this.handleProjectSubmit.bind(this));
         document.getElementById('environment-form').addEventListener('submit', this.handleEnvironmentSubmit.bind(this));
-        document.getElementById('template-form').addEventListener('submit', this.handleTemplateSubmit.bind(this));
         document.getElementById('settings-token-form').addEventListener('submit', this.handleTokenSubmit.bind(this));
         document.getElementById('token-modal-form').addEventListener('submit', this.handleTokenSubmit.bind(this));
         document.getElementById('settings-ghcr-form').addEventListener('submit', this.handleGhcrSubmit.bind(this));
         document.getElementById('ghcr-modal-form').addEventListener('submit', this.handleGhcrSubmit.bind(this));
+        document.getElementById('initial-setup-form').addEventListener('submit', this.handleInitialSetup.bind(this));
 
         // Real-time YAML sync
         document.getElementById('project-image').addEventListener('input', this.syncComposeYml.bind(this));
         document.getElementById('project-container').addEventListener('input', this.syncComposeYml.bind(this));
+    },
+
+    async handleInitialSetup(e) {
+        e.preventDefault();
+        const clientId = document.getElementById('setup-client-id').value;
+        const clientSecret = document.getElementById('setup-client-secret').value;
+
+        try {
+            await this.api('settings/GITHUB_CLIENT_ID', 'PUT', { value: clientId });
+            await this.api('settings/GITHUB_CLIENT_SECRET', 'PUT', { value: clientSecret });
+            
+            // Redirect to GitHub OAuth login
+            window.location.href = '/api/github/login';
+        } catch (e) {
+            // Error handled by api()
+        }
     },
 
     syncComposeYml() {
@@ -91,39 +127,6 @@ const app = {
         this.updateServerDropdown();
     },
 
-    async fetchRegistries() {
-        this.registries = await this.api('registry');
-        this.checkRegistryExpirations();
-        this.renderRegistries();
-        this.updateRegistryDropdown();
-    },
-
-    checkRegistryExpirations() {
-        const now = new Date();
-        const expiredRegistries = this.registries.filter(r => {
-            if (!r.expiresAt) return false;
-            return new Date(r.expiresAt) < now;
-        });
-
-        const warningBanner = document.getElementById('registry-warning');
-        const alertBadge = document.getElementById('registries-alert-badge');
-
-        if (expiredRegistries.length > 0) {
-            if (warningBanner) {
-                const names = expiredRegistries.map(r => r.name).join(', ');
-                document.getElementById('registry-warning-text').innerHTML = `<strong>Registry Token Expired:</strong> The token for registry (<strong>${names}</strong>) has expired. Deployments using these registries may fail.`;
-                warningBanner.style.display = 'flex';
-            }
-            if (alertBadge) {
-                alertBadge.innerText = expiredRegistries.length;
-                alertBadge.style.display = 'inline-flex';
-            }
-        } else {
-            if (warningBanner) warningBanner.style.display = 'none';
-            if (alertBadge) alertBadge.style.display = 'none';
-        }
-    },
-
     async fetchProjects() {
         this.projects = await this.api('projects');
         this.renderProjects();
@@ -134,11 +137,6 @@ const app = {
         this.environments = await this.api('environment');
         this.renderEnvironments();
         this.updateEnvDropdowns();
-    },
-
-    async fetchTemplates() {
-        this.templates = await this.api('template');
-        this.renderTemplates();
     },
 
     async fetchSettings() {
@@ -188,6 +186,90 @@ const app = {
         this.renderProjects();
     },
 
+    // --- System Updates ---
+    async fetchSystemUpdateStatus() {
+        try {
+            const status = await this.api('settings/system-update/status');
+            
+            // Update Settings UI
+            document.getElementById('system-auto-update-toggle').checked = status.autoUpdate;
+            
+            const digestStr = status.lastDigest ? status.lastDigest.substring(0, 15) + '...' : 'Unknown';
+            document.getElementById('system-update-digest-text').innerText = `Last Digest: ${digestStr}`;
+
+            const statusText = document.getElementById('system-update-status-text');
+            const updateBtn = document.getElementById('system-update-btn');
+            const banner = document.getElementById('system-update-banner');
+
+            if (status.updateAvailable) {
+                statusText.innerHTML = `<span style="color: var(--warning);">⚠️ Update Available</span>`;
+                updateBtn.style.display = 'inline-flex';
+                banner.style.display = 'flex';
+            } else {
+                statusText.innerHTML = `<span style="color: var(--success);">✓ Up to date</span>`;
+                updateBtn.style.display = 'none';
+                banner.style.display = 'none';
+            }
+        } catch (e) {
+            console.error('Failed to fetch system update status', e);
+        }
+    },
+
+    async checkSystemUpdate() {
+        this.showToast('Checking for system updates...', 'info');
+        try {
+            const res = await this.api('settings/system-update/check', 'POST');
+            if (res.available) {
+                this.showToast('New update found!', 'success');
+            } else if (res.status === 'skipped') {
+                this.showToast('Check skipped: GHCR_TOKEN missing.', 'warning');
+            } else {
+                this.showToast('System is up to date.');
+            }
+            this.fetchSystemUpdateStatus();
+        } catch (e) {
+            this.showToast('Failed to check for updates.', 'error');
+        }
+    },
+
+    async triggerSystemUpdate() {
+        if (!confirm('This will download the latest Main Center image and restart the agent. The UI will become temporarily unavailable. Proceed?')) return;
+        
+        try {
+            const token = document.getElementById('setting-agent-token').value || localStorage.getItem('agentSecretToken');
+            if (!token) {
+                this.showToast('AGENT_SECRET_TOKEN is required for self update.', 'error');
+                this.switchTab('settings');
+                return;
+            }
+
+            const response = await fetch('/api/settings/self-update', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                this.showToast('Self-update initiated. The system will restart shortly.', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 10000);
+            } else {
+                const err = await response.json();
+                this.showToast(`Self-update failed: ${err.message}`, 'error');
+            }
+        } catch (e) {
+            this.showToast('Failed to trigger update.', 'error');
+        }
+    },
+
+    async toggleSystemAutoUpdate(e) {
+        const isEnabled = e.target.checked;
+        await this.api('settings', 'POST', { key: 'MAIN_CENTER_AUTO_UPDATE', value: isEnabled ? 'true' : 'false' });
+        this.showToast(`Auto update ${isEnabled ? 'enabled' : 'disabled'}.`);
+    },
+
     async fetchHealth() {
         this.healthStatus = await this.api('health');
         this.updateDashboard();
@@ -210,44 +292,21 @@ const app = {
         `).join('') || '<tr><td colspan="4">No servers configured.</td></tr>';
     },
 
-    renderRegistries() {
-        const tbody = document.querySelector('#registries-table tbody');
-        const now = new Date();
-        tbody.innerHTML = this.registries.map(r => {
-            let expiryHtml = '';
-            if (r.expiresAt) {
-                const d = new Date(r.expiresAt);
-                const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                if (d < now) {
-                    expiryHtml = `<span class="status status-expired">⚠️ Expired (${dateStr})</span>`;
-                } else {
-                    expiryHtml = `<span class="status status-active">✓ Active (Expires: ${dateStr})</span>`;
-                }
-            } else {
-                expiryHtml = `<span class="status status-no-expiry">No Expiration</span>`;
-            }
-
-            return `
-                <tr>
-                    <td><strong>${r.name}</strong></td>
-                    <td>${r.url}</td>
-                    <td>${r.username}</td>
-                    <td>${expiryHtml}</td>
-                    <td class="actions-cell">
-                        <button class="btn btn-sm btn-secondary" onclick="app.editRegistry(${r.id})">Edit</button>
-                        <button class="btn btn-sm btn-danger" onclick="app.deleteRegistry(${r.id})">Delete</button>
-                    </td>
-                </tr>
-            `;
-        }).join('') || '<tr><td colspan="5">No registries configured.</td></tr>';
-    },
-
     renderProjects() {
         const tbody = document.querySelector('#projects-table tbody');
         tbody.innerHTML = this.projects.map(p => {
             const status = this.healthStatus[p.id] || 'unknown';
             const statusClass = status.includes('running') || status.includes('Up') ? 'status-running' : (status === 'unknown' ? 'status-unknown' : 'status-down');
             
+            let updateStatus = '';
+            if (p.updateAvailable) {
+                updateStatus = `<span style="background: #f59e0b; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px;">Update Available</span>`;
+            } else if (p.autoUpdate) {
+                updateStatus = `<span style="background: rgba(255,255,255,0.1); color: var(--text-secondary); padding: 2px 6px; border-radius: 4px; font-size: 11px;">Auto Update On</span>`;
+            } else {
+                updateStatus = `<span style="color: var(--text-secondary); font-size: 11px;">Manual</span>`;
+            }
+
             return `
             <tr>
                 <td>
@@ -256,13 +315,18 @@ const app = {
                 </td>
                 <td>${p.server ? p.server.name : 'Unassigned'}</td>
                 <td>${p.containerName}</td>
+                <td>${p.githubRepo || '<span style="color:var(--text-secondary)">None</span>'}</td>
+                <td>${updateStatus}</td>
                 <td class="actions-cell">
                     <button class="btn btn-sm btn-secondary" onclick="app.editProject(${p.id})">Edit</button>
-                    <button class="btn btn-sm btn-primary" onclick="app.triggerDeploy('${p.webhookToken}')" ${!this.hasSecretToken ? 'disabled style="opacity:0.5;cursor:not-allowed;" title="Disabled: Set AGENT_SECRET_TOKEN"' : ''}>Deploy</button>
+                    ${p.updateAvailable 
+                        ? `<button class="btn btn-sm btn-primary" onclick="app.manualDeploy(${p.id})" style="background: #f59e0b; color: #fff; border: none;">Update Now</button>`
+                        : `<button class="btn btn-sm btn-primary" onclick="app.manualDeploy(${p.id})">Deploy</button>`
+                    }
                     <button class="btn btn-sm btn-danger" onclick="app.deleteProject(${p.id})">Delete</button>
                 </td>
             </tr>
-        `}).join('') || '<tr><td colspan="5">No projects configured.</td></tr>';
+        `}).join('') || '<tr><td colspan="6">No projects configured.</td></tr>';
     },
 
     renderEnvironments() {
@@ -280,29 +344,10 @@ const app = {
         `).join('') || '<tr><td colspan="4">No environments configured.</td></tr>';
     },
 
-    renderTemplates() {
-        const tbody = document.querySelector('#templates-table tbody');
-        tbody.innerHTML = this.templates.map(t => `
-            <tr>
-                <td><strong>${t.name}</strong></td>
-                <td class="actions-cell">
-                    <button class="btn btn-sm btn-secondary" onclick="app.editTemplate(${t.id})">Edit</button>
-                    <button class="btn btn-sm btn-danger" onclick="app.deleteTemplate(${t.id})">Delete</button>
-                </td>
-            </tr>
-        `).join('') || '<tr><td colspan="2">No templates configured.</td></tr>';
-    },
-
     updateServerDropdown() {
         const select = document.getElementById('project-server');
         select.innerHTML = '<option value="">Select a server...</option>' + 
             this.servers.map(s => `<option value="${s.id}">${s.name} (${s.ipOrHostname})</option>`).join('');
-    },
-
-    updateRegistryDropdown() {
-        const select = document.getElementById('project-registry');
-        select.innerHTML = '<option value="">None (Public Image)</option>' + 
-            this.registries.map(r => `<option value="${r.id}">${r.name} (${r.url})</option>`).join('');
     },
 
     updateEnvDropdowns() {
@@ -382,93 +427,12 @@ const app = {
         }
     },
 
-    // --- Registries CRUD ---
-    openRegistryModal() {
-        document.getElementById('registry-form').reset();
-        document.getElementById('registry-id').value = '';
-        document.getElementById('registry-expiry-select').value = 'no-expiry';
-        document.getElementById('custom-expiry-container').style.display = 'none';
-        document.getElementById('registry-custom-expires-at').value = '';
-        document.getElementById('registry-modal-title').innerText = 'Add Registry';
-        document.getElementById('registry-modal').classList.add('active');
-    },
-
-    handleExpiryChange() {
-        const select = document.getElementById('registry-expiry-select');
-        const container = document.getElementById('custom-expiry-container');
-        if (select.value === 'custom') {
-            container.style.display = 'block';
-        } else {
-            container.style.display = 'none';
-        }
-    },
-
-    async editRegistry(id) {
-        const registry = await this.api(`registry/${id}`);
-        document.getElementById('registry-id').value = registry.id;
-        document.getElementById('registry-name').value = registry.name;
-        document.getElementById('registry-url').value = registry.url;
-        document.getElementById('registry-user').value = registry.username;
-        document.getElementById('registry-pass').value = registry.token;
-        if (registry.expiresAt) {
-            document.getElementById('registry-expiry-select').value = 'custom';
-            document.getElementById('custom-expiry-container').style.display = 'block';
-            const d = new Date(registry.expiresAt);
-            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            document.getElementById('registry-custom-expires-at').value = dateStr;
-        } else {
-            document.getElementById('registry-expiry-select').value = 'no-expiry';
-            document.getElementById('custom-expiry-container').style.display = 'none';
-            document.getElementById('registry-custom-expires-at').value = '';
-        }
-        document.getElementById('registry-modal-title').innerText = 'Edit Registry';
-        document.getElementById('registry-modal').classList.add('active');
-    },
-
-    async handleRegistrySubmit(e) {
-        e.preventDefault();
-        const id = document.getElementById('registry-id').value;
-        const expirySelect = document.getElementById('registry-expiry-select').value;
-        
-        let expiresAt = null;
-        if (expirySelect === 'custom') {
-            const customDate = document.getElementById('registry-custom-expires-at').value;
-            expiresAt = customDate ? new Date(customDate).toISOString() : null;
-        } else if (expirySelect !== 'no-expiry') {
-            const days = parseInt(expirySelect, 10);
-            const d = new Date();
-            d.setDate(d.getDate() + days);
-            expiresAt = d.toISOString();
-        }
-
-        const data = {
-            name: document.getElementById('registry-name').value,
-            url: document.getElementById('registry-url').value,
-            username: document.getElementById('registry-user').value,
-            token: document.getElementById('registry-pass').value,
-            expiresAt
-        };
-
-        if (id) await this.api(`registry/${id}`, 'PUT', data);
-        else await this.api('registry', 'POST', data);
-
-        this.showToast(`Registry ${id ? 'updated' : 'added'} successfully.`);
-        this.closeModals();
-        this.fetchRegistries();
-    },
-
-    async deleteRegistry(id) {
-        if(confirm('Are you sure you want to delete this registry?')) {
-            await this.api(`registry/${id}`, 'DELETE');
-            this.showToast('Registry deleted.');
-            this.fetchRegistries();
-        }
-    },
-
     openProjectModal() {
         document.getElementById('project-form').reset();
         document.getElementById('project-id').value = '';
         document.getElementById('env-list').innerHTML = '';
+        document.getElementById('project-github-repo').value = '';
+        document.getElementById('project-auto-update').checked = false;
         document.getElementById('btn-rotate-token').style.display = 'none';
         
         // Default Compose YAML
@@ -493,10 +457,11 @@ services:
         document.getElementById('project-id').value = project.id;
         document.getElementById('project-name').value = project.name;
         document.getElementById('project-server').value = project.server ? project.server.id : '';
-        document.getElementById('project-registry').value = project.registry ? project.registry.id : '';
         document.getElementById('project-image').value = project.dockerImage || '';
         document.getElementById('project-container').value = project.containerName || '';
         document.getElementById('project-compose').value = project.composeYaml || `version: '3.8'\nservices:\n  app:\n    image: ${project.dockerImage}\n    container_name: ${project.containerName}\n    env_file:\n      - .env`;
+        document.getElementById('project-github-repo').value = project.githubRepo || '';
+        document.getElementById('project-auto-update').checked = project.autoUpdate || false;
         
         document.getElementById('env-list').innerHTML = '';
         if (project.environments && project.environments.length > 0) {
@@ -518,15 +483,10 @@ services:
             dockerImage: document.getElementById('project-image').value,
             containerName: document.getElementById('project-container').value,
             composeYaml: document.getElementById('project-compose').value,
+            githubRepo: document.getElementById('project-github-repo').value || null,
+            autoUpdate: document.getElementById('project-auto-update').checked,
             server: { id: document.getElementById('project-server').value }
         };
-
-        const registryId = document.getElementById('project-registry').value;
-        if (registryId) {
-            data.registry = { id: registryId };
-        } else {
-            data.registry = null;
-        }
 
         // Resolve environments
         const envRows = document.querySelectorAll('.env-row');
@@ -647,48 +607,6 @@ services:
         }
     },
 
-    // --- Templates CRUD ---
-    openTemplateModal() {
-        document.getElementById('template-form').reset();
-        document.getElementById('template-id').value = '';
-        document.getElementById('template-edit-title').innerText = 'Add Template';
-        document.getElementById('template-edit-modal').classList.add('active');
-    },
-
-    async editTemplate(id) {
-        const t = this.templates.find(x => x.id == id);
-        if (!t) return;
-        document.getElementById('template-id').value = t.id;
-        document.getElementById('template-name').value = t.name;
-        document.getElementById('template-content').value = t.content;
-        document.getElementById('template-edit-title').innerText = 'Edit Template';
-        document.getElementById('template-edit-modal').classList.add('active');
-    },
-
-    async handleTemplateSubmit(e) {
-        e.preventDefault();
-        const id = document.getElementById('template-id').value;
-        const data = {
-            name: document.getElementById('template-name').value,
-            content: document.getElementById('template-content').value
-        };
-
-        if (id) await this.api(`template/${id}`, 'PUT', data);
-        else await this.api('template', 'POST', data);
-
-        this.showToast(`Template ${id ? 'updated' : 'added'} successfully.`);
-        this.closeModals();
-        this.fetchTemplates();
-    },
-
-    async deleteTemplate(id) {
-        if(confirm('Are you sure you want to delete this template?')) {
-            await this.api(`template/${id}`, 'DELETE');
-            this.showToast('Template deleted.');
-            this.fetchTemplates();
-        }
-    },
-
     // --- Settings & Token ---
     openTokenModal() {
         document.getElementById('token-modal-form').reset();
@@ -757,37 +675,49 @@ services:
     // --- Integration Guide ---
     openGuideModal() {
         const projSelect = document.getElementById('guide-project');
-        const tmpSelect = document.getElementById('guide-template');
         
         projSelect.innerHTML = '<option value="">Select a project</option>' + 
-            this.projects.map(p => `<option value="${p.webhookToken}">${p.name}</option>`).join('');
-            
-        tmpSelect.innerHTML = '<option value="">Select a template</option>' + 
-            this.templates.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+            this.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
-        document.getElementById('guide-code').innerText = 'Please select a project and a template.';
+        document.getElementById('guide-code').innerText = 'Please select a project.';
         document.getElementById('guide-modal').classList.add('active');
     },
 
     generateGuideCode() {
-        const token = document.getElementById('guide-project').value;
-        const tmpId = document.getElementById('guide-template').value;
-        const codeEl = document.getElementById('guide-code');
-
-        if (!token || !tmpId) {
-            codeEl.innerText = 'Please select a project and a template.';
-            return;
-        }
-
-        const t = this.templates.find(x => x.id == tmpId);
-        if (!t) return;
-
-        // Nginx translates /deploy directly to /api/webhook/deploy
-        const url = 'https://MAIN_CENTER_URL/deploy';
-        let result = t.content.replace(/\{\{WEBHOOK_URL\}\}/g, url);
-        result = result.replace(/\{\{WEBHOOK_TOKEN\}\}/g, token);
-
-        codeEl.innerText = result;
+        const projectId = document.getElementById('guide-project').value;
+        if (!projectId) return;
+        
+        const project = this.projects.find(p => p.id == projectId);
+        if (!project) return;
+        
+        const imageString = project.dockerImage || 'ghcr.io/username/repo:latest';
+        
+        const code = `name: Build and Push
+on:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: \${{ github.actor }}
+          password: \${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${imageString}`;
+        
+        document.getElementById('guide-code').innerText = code;
     },
 
     copyGuideCode() {
@@ -797,15 +727,42 @@ services:
         });
     },
 
-    // --- Actions ---
-    async triggerDeploy(token) {
-        this.showToast('Deploy triggered...', false);
+    async checkUpdates() {
+        this.showToast('Checking for updates...', false);
         try {
-            await this.api('webhook/deploy', 'POST', null, { 'Authorization': `Bearer ${token}` });
-            this.showToast('Deploy successful!');
-            this.fetchHealth();
+            const res = await this.api('projects/check-updates', 'POST');
+            this.showToast(`Update check complete. Updated ${res.updatedProjects || 0} projects.`);
+            this.fetchProjects();
         } catch(e) {
-            this.showToast('Deploy failed.', true);
+            this.showToast('Failed to check for updates.', true);
+        }
+    },
+
+    async manualDeploy(projectId) {
+        this.showToast('Deployment started...', false);
+        try {
+            await this.api(`projects/${projectId}/deploy`, 'POST');
+            this.showToast('Deployment successful!');
+            this.fetchHealth();
+            this.fetchProjects();
+        } catch(e) {
+            this.showToast('Deployment failed.', true);
+        }
+    },
+
+    async fetchGithubRepos() {
+        try {
+            const repos = await this.api('github/repos');
+            const select = document.getElementById('project-github-repo');
+            select.innerHTML = '<option value="">-- None (Manual Image Only) --</option>';
+            repos.forEach(repo => {
+                const opt = document.createElement('option');
+                opt.value = repo.name;
+                opt.innerText = repo.name + (repo.private ? ' 🔒' : '');
+                select.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Failed to fetch github repos');
         }
     },
 
@@ -814,7 +771,7 @@ services:
         if(!token) return;
         if(confirm('This will trigger a docker pull and restart of this agent. Continue?')) {
             try {
-                await this.api('webhook/self-update', 'POST', null, { 'Authorization': `Bearer ${token}` });
+                await this.api('settings/self-update', 'POST', null, { 'Authorization': `Bearer ${token}` });
                 this.showToast('Self-update initiated. The service might restart soon.');
             } catch (e) {
                 this.showToast('Self-update failed or unauthorized.', true);

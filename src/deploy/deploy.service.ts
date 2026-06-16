@@ -3,10 +3,13 @@ import { Client, ConnectConfig } from 'ssh2';
 import { Server } from '../server/server.entity';
 import { Project } from '../project/project.entity';
 import { Environment } from '../environment/environment.entity';
+import { SettingService } from '../setting/setting.service';
 
 @Injectable()
 export class DeployService {
   private readonly logger = new Logger(DeployService.name);
+
+  constructor(private readonly settingService: SettingService) {}
 
   private async executeSshCommand(server: Server, command: string): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -68,13 +71,15 @@ export class DeployService {
       `cat << 'EOF' > docker-compose.yml\n${project.composeYaml}\nEOF`
     ];
 
-    if (project.registry) {
-      if (project.registry.expiresAt && new Date(project.registry.expiresAt) < new Date()) {
-        this.logger.warn(`Registry '${project.registry.name}' token has expired (Expired at: ${project.registry.expiresAt}).`);
+    try {
+      const ghcrUser = await this.settingService.getValue('GHCR_USERNAME');
+      const ghcrToken = await this.settingService.getValue('GHCR_TOKEN');
+      if (ghcrUser && ghcrToken) {
+        commands.push(`echo "${ghcrToken}" | docker login ghcr.io -u ${ghcrUser} --password-stdin`);
       }
-      commands.push(`echo "${project.registry.token}" | docker login ${project.registry.url} -u ${project.registry.username} --password-stdin`);
+    } catch (e) {
+      this.logger.warn('Failed to fetch GHCR credentials from settings.', e);
     }
-    
     commands.push(
       `docker compose pull`,
       `docker compose up -d`

@@ -4,16 +4,14 @@ import { join } from 'path';
 import { ServerModule } from './server/server.module';
 import { ProjectModule } from './project/project.module';
 import { DeployModule } from './deploy/deploy.module';
-import { WebhookModule } from './webhook/webhook.module';
 import { HealthModule } from './health/health.module';
 
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { EnvironmentModule } from './environment/environment.module';
-import { TemplateModule } from './template/template.module';
-import { RegistryModule } from './registry/registry.module';
 import { SettingModule } from './setting/setting.module';
 import { Setting } from './setting/setting.entity';
+import { GithubModule } from './github/github.module';
 
 @Module({
   imports: [
@@ -31,12 +29,10 @@ import { Setting } from './setting/setting.entity';
     ServerModule,
     ProjectModule,
     DeployModule,
-    WebhookModule,
     HealthModule,
     EnvironmentModule,
-    TemplateModule,
-    RegistryModule,
     SettingModule,
+    GithubModule,
   ],
   controllers: [],
   providers: [],

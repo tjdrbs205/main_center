@@ -42,12 +42,3 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Trigger Self-Update Webhook
-        env:
-          MAIN_CENTER_URL: ${{ secrets.MAIN_CENTER_URL }}
-          AGENT_SECRET_TOKEN: ${{ secrets.AGENT_SECRET_TOKEN }}
-        run: |
-          echo "Triggering self-update webhook at $MAIN_CENTER_URL/self-update"
-          curl -X POST "$MAIN_CENTER_URL/self-update" \
-               -H "Authorization: Bearer $AGENT_SECRET_TOKEN" \
-               -H "Content-Type: application/json"
