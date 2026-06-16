@@ -191,7 +191,9 @@ const app = {
         this.showToast('Checking for system updates...', 'info');
         try {
             const res = await this.api('settings/system-update/check', 'POST');
-            if (res.available) {
+            if (res.error) {
+                this.showToast('Failed to check for updates.', 'error');
+            } else if (res.available) {
                 this.showToast('New update found!', 'success');
             } else {
                 this.showToast('System is up to date.');

@@ -45,10 +45,17 @@ export class SettingService {
   async checkSystemUpdate() {
     this.logger.debug('Checking system update for main_center...');
     try {
+      // 1. Fetch anonymous bearer token for public repo
+      const tokenRes = await fetch('https://ghcr.io/token?scope=repository:tjdrbs205/main_center:pull');
+      const tokenData = await tokenRes.json();
+      const bearer = tokenData.token;
+
+      // 2. Fetch remote digest
       const url = `https://ghcr.io/v2/tjdrbs205/main_center/manifests/latest`;
       const response = await fetch(url, {
         method: 'HEAD',
         headers: {
+          'Authorization': `Bearer ${bearer}`,
           'Accept': 'application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json'
         }
       });
