@@ -341,8 +341,19 @@
         </div>
     </div>
 
-
-
+    <!-- System Update Logs Modal -->
+    <div id="update-logs-modal" class="modal-overlay">
+        <div class="modal glass-panel" style="max-width: 800px; width: 90%;">
+            <h2>System Update Progress</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">The update is currently in progress. Please do not close this window.</p>
+            <div id="update-logs-container" style="background: #0f172a; border: 1px solid var(--border-glass); border-radius: 8px; padding: 16px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 13px; color: #a5b4fc; line-height: 1.5; white-space: pre-wrap; margin-bottom: 16px;">
+                Waiting for logs...
+            </div>
+            <div class="modal-actions">
+                <!-- Buttons can be added here if needed, but usually it auto-reloads -->
+            </div>
+        </div>
+    </div>
     <!-- GHCR Credentials Modal -->
     <div id="ghcr-modal" class="modal-overlay">
         <div class="modal glass-panel">

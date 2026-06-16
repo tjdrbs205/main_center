@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Setting } from './setting.entity';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
@@ -10,6 +10,17 @@ const execAsync = promisify(exec);
 @Injectable()
 export class SettingService {
   private readonly logger = new Logger(SettingService.name);
+  private updateLogs: string[] = [];
+
+  getUpdateLogs(): string[] {
+    return this.updateLogs;
+  }
+
+  private addLog(msg: string) {
+    const time = new Date().toLocaleTimeString();
+    this.updateLogs.push(`[${time}] ${msg}`);
+    this.logger.log(msg);
+  }
 
   constructor(
     @InjectRepository(Setting)
@@ -83,7 +94,8 @@ export class SettingService {
   }
 
   async handleSelfUpdate(newDigest?: string) {
-    this.logger.log('Received self-update request. Starting self-update process...');
+    this.updateLogs = []; // Reset logs
+    this.addLog('Received self-update request. Starting self-update process...');
 
     try {
       const ghcrUser = await this.getValue('GHCR_USERNAME');
@@ -92,12 +104,12 @@ export class SettingService {
         const user = ghcrUser.replace(/'/g, "'\\''");
         const token = ghcrToken.replace(/'/g, "'\\''");
         await execAsync(`echo '${token}' | docker login ghcr.io -u '${user}' --password-stdin`);
-        this.logger.log('Authenticated with ghcr.io successfully.');
+        this.addLog('Authenticated with ghcr.io successfully.');
       } else {
-        this.logger.warn('GHCR credentials not configured in Settings. Pull may fail for private images.');
+        this.addLog('GHCR credentials not configured in Settings. Using public access.');
       }
     } catch (e) {
-      this.logger.warn('Registry login failed, attempting pull without auth...', e);
+      this.addLog('Registry login failed, attempting pull without auth...');
     }
 
     let dataPath: string;
@@ -107,18 +119,32 @@ export class SettingService {
         `docker inspect --format='{{range .Mounts}}{{if eq .Destination "/app/data"}}{{.Source}}{{end}}{{end}}' main_center_agent`,
       );
       dataPath = dataOut.trim().replace(/^'|'$/g, '');
-      this.logger.log(`Using target image: ${image}, data path: ${dataPath}`);
+      this.addLog(`Using target image: ${image}, data path: ${dataPath}`);
     } catch (e) {
-      this.logger.error('Failed to inspect running container', e);
+      this.addLog(`Failed to inspect running container: ${e.message}`);
       throw e;
     }
 
-    this.logger.log(`Pulling latest image: ${image}`);
+    this.addLog(`Pulling latest image: ${image}`);
     try {
-      await execAsync(`docker pull ${image}`);
-      this.logger.log('Latest image pulled successfully.');
+      await new Promise<void>((resolve, reject) => {
+        const pull = spawn('docker', ['pull', image]);
+        pull.stdout.on('data', (data) => {
+          const lines = data.toString().split('\n').filter(l => l.trim());
+          lines.forEach(l => this.addLog(l));
+        });
+        pull.stderr.on('data', (data) => {
+          const lines = data.toString().split('\n').filter(l => l.trim());
+          lines.forEach(l => this.addLog(`ERR: ${l}`));
+        });
+        pull.on('close', (code) => {
+          if (code === 0) resolve();
+          else reject(new Error(`Docker pull exited with code ${code}`));
+        });
+      });
+      this.addLog('Latest image pulled successfully.');
     } catch (e) {
-      this.logger.error('Failed to pull latest image', e);
+      this.addLog(`Failed to pull latest image: ${e.message}`);
       throw e;
     }
 
@@ -129,11 +155,12 @@ export class SettingService {
         await this.setValue('MAIN_CENTER_LAST_DIGEST', newDigest);
         await this.setValue('MAIN_CENTER_UPDATE_AVAILABLE', 'false');
       }
+      this.addLog('Executing background restarter container...');
       await execAsync(cmd);
-      this.logger.log('Self-update background process initiated successfully.');
+      this.addLog('Self-update background process initiated successfully. Main Center will now restart and this connection will drop.');
       return { status: 'Self-update initiated' };
     } catch (e) {
-      this.logger.error('Self-update failed', e);
+      this.addLog(`Self-update failed: ${e.message}`);
       throw e;
     }
   }

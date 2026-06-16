@@ -211,10 +211,15 @@ const app = {
             });
 
             if (response.ok) {
-                this.showToast('Self-update initiated. The system will restart shortly.');
-                setTimeout(() => {
-                    window.location.reload();
-                }, 10000);
+                this.showToast('Self-update initiated.');
+                
+                // Show logs modal
+                document.getElementById('update-logs-modal').classList.add('active');
+                const container = document.getElementById('update-logs-container');
+                container.innerHTML = 'Connecting to update logs...';
+                
+                // Start polling logs
+                this.pollSystemUpdateLogs();
             } else {
                 const txt = await response.text();
                 this.showToast(`Self-update failed: ${txt}`, true);
@@ -222,6 +227,38 @@ const app = {
         } catch (e) {
             this.showToast('Failed to trigger update.', true);
         }
+    },
+
+    async pollSystemUpdateLogs() {
+        const container = document.getElementById('update-logs-container');
+        let consecutiveFailures = 0;
+        
+        const pollInterval = setInterval(async () => {
+            try {
+                const res = await fetch('/api/settings/system-update/logs');
+                if (!res.ok) throw new Error('API down');
+                const data = await res.json();
+                
+                if (data.logs && data.logs.length > 0) {
+                    container.innerHTML = data.logs.join('<br>');
+                    container.scrollTop = container.scrollHeight; // Auto-scroll to bottom
+                }
+                
+                consecutiveFailures = 0; // reset on success
+            } catch (e) {
+                // If API fails consecutively, it means the container is restarting
+                consecutiveFailures++;
+                if (consecutiveFailures > 3) {
+                    clearInterval(pollInterval);
+                    container.innerHTML += '<br><br><span style="color: var(--success)">[System] Server disconnected. The agent is restarting...</span><br>The UI will automatically refresh shortly.';
+                    container.scrollTop = container.scrollHeight;
+                    
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 5000);
+                }
+            }
+        }, 1000);
     },
 
     async toggleSystemAutoUpdate(e) {

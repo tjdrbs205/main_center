@@ -35,7 +35,14 @@ export class SettingController {
 
   @Post('self-update')
   async selfUpdate() {
-    return this.settingService.handleSelfUpdate();
+    // Run in background so frontend can poll logs
+    this.settingService.handleSelfUpdate().catch(e => console.error(e));
+    return { success: true, message: 'Update started' };
+  }
+
+  @Get('system-update/logs')
+  getSystemUpdateLogs() {
+    return { logs: this.settingService.getUpdateLogs() };
   }
 
   @Get('system-update/status')
