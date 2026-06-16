@@ -174,11 +174,11 @@ const app = {
             const banner = document.getElementById('system-update-banner');
 
             if (status.updateAvailable) {
-                statusText.innerHTML = `<span style="color: var(--warning);">⚠️ Update Available</span>`;
+                statusText.innerHTML = `<span style="color: var(--warning);"><i class="fas fa-exclamation-triangle"></i> Update Available</span>`;
                 updateBtn.style.display = 'inline-flex';
                 banner.style.display = 'flex';
             } else {
-                statusText.innerHTML = `<span style="color: var(--success);">✓ Up to date</span>`;
+                statusText.innerHTML = `<span style="color: var(--success);"><i class="fas fa-check-circle"></i> Up to date</span>`;
                 updateBtn.style.display = 'none';
                 banner.style.display = 'none';
             }

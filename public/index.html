@@ -134,7 +134,7 @@
 
 
                 <div class="settings-card" style="margin-top: 20px;">
-                    <h3>🐳 Self-Update Registry (GHCR)</h3>
+                    <h3 style="display: flex; align-items: center; gap: 8px;"><i class="fab fa-docker" style="color: var(--primary);"></i> Self-Update Registry (GHCR)</h3>
                     <p>GHCR credentials are required for pulling private Docker images during self-update.</p>
                     <div id="settings-ghcr-container" style="margin-top: 16px;">
                         <div id="settings-ghcr-unconfigured">
@@ -155,7 +155,7 @@
                         <div id="settings-ghcr-configured" style="display: none;">
                             <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 16px; border-radius: 8px;">
                                 <div style="display: flex; align-items: center; gap: 12px;">
-                                    <span style="color: var(--success); font-size: 20px;">✓</span>
+                                    <i class="fas fa-check-circle" style="color: var(--success); font-size: 20px;"></i>
                                     <span>GHCR credentials are configured.</span>
                                 </div>
                                 <button class="btn btn-secondary" onclick="app.openGhcrModal()">Change Credentials</button>
