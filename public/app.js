@@ -193,8 +193,6 @@ const app = {
             const res = await this.api('settings/system-update/check', 'POST');
             if (res.available) {
                 this.showToast('New update found!', 'success');
-            } else if (res.status === 'skipped') {
-                this.showToast('Check skipped: GHCR_TOKEN missing.', 'warning');
             } else {
                 this.showToast('System is up to date.');
             }

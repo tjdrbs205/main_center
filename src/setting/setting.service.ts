@@ -34,17 +34,10 @@ export class SettingService {
   async checkSystemUpdate() {
     this.logger.debug('Checking system update for main_center...');
     try {
-      const token = await this.getValue('GHCR_TOKEN');
-      if (!token) return { status: 'skipped', reason: 'Missing GHCR_TOKEN' };
-
-      const username = await this.getValue('GHCR_USERNAME') || 'token';
-      const basicAuth = Buffer.from(`${username}:${token}`).toString('base64');
-
       const url = `https://ghcr.io/v2/tjdrbs205/main_center/manifests/latest`;
       const response = await fetch(url, {
         method: 'HEAD',
         headers: {
-          'Authorization': `Basic ${basicAuth}`,
           'Accept': 'application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json'
         }
       });
