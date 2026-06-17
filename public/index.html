@@ -1,404 +1,778 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" class="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Main Center - Deployment Agent</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <meta name="description" content="Central Control Plane for Mini CD and Environment Variable Management">
-</head>
-<body>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <meta
+      name="description"
+      content="Central Control Plane for Mini CD and Environment Variable Management"
+    />
+  </head>
+  <body>
     <div class="background-effects">
-        <div class="blob blob-1"></div>
-        <div class="blob blob-2"></div>
+      <div class="blob blob-1"></div>
+      <div class="blob blob-2"></div>
     </div>
 
     <div class="app-container">
-        <nav class="sidebar glass-panel">
-            <div class="logo">
-                <h2>MainCenter</h2>
-                <div class="pulse-indicator"></div>
+      <nav class="sidebar glass-panel">
+        <div class="logo">
+          <h2>MainCenter</h2>
+          <div class="pulse-indicator"></div>
+        </div>
+        <ul class="nav-links">
+          <li class="active" data-tab="dashboard">Dashboard</li>
+          <li data-tab="servers">Servers</li>
+          <li data-tab="projects">Projects & Envs</li>
+          <li data-tab="environments">Environments</li>
+          <li data-tab="settings">Settings</li>
+        </ul>
+      </nav>
+
+      <main class="content-area">
+        <!-- Global System Update Banner -->
+        <div
+          id="system-update-banner"
+          style="
+            display: none;
+            background: rgba(56, 189, 248, 0.15);
+            border: 1px solid var(--primary);
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+          "
+          onclick="app.switchTab('settings')"
+        >
+          <div style="display: flex; align-items: center; gap: 12px">
+            <i
+              class="fas fa-rocket"
+              style="color: var(--primary); font-size: 20px"
+            ></i>
+            <span style="color: var(--text-primary); font-weight: 500"
+              >A new version of Main Center is available!</span
+            >
+          </div>
+          <button
+            class="btn btn-primary"
+            onclick="
+              event.stopPropagation();
+              app.triggerSystemUpdate();
+            "
+          >
+            Update Now
+          </button>
+        </div>
+
+        <!-- Dashboard View -->
+        <section id="dashboard" class="view active">
+          <header class="view-header">
+            <h1>Dashboard</h1>
+            <p>Overview of all deployed services and health statuses.</p>
+          </header>
+          <div class="stats-grid" id="dashboard-stats">
+            <!-- Stats populated by JS -->
+          </div>
+          <div class="health-grid" id="health-grid">
+            <!-- Health cards populated by JS -->
+          </div>
+        </section>
+
+        <!-- Servers View -->
+        <section id="servers" class="view">
+          <header class="view-header">
+            <h1>Target Servers</h1>
+            <button class="btn btn-primary" onclick="app.openServerModal()">
+              + Add Server
+            </button>
+          </header>
+          <div class="table-container">
+            <table class="data-table" id="servers-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Hostname/IP</th>
+                  <th>User</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Projects View -->
+        <div id="projects" class="view">
+          <div class="panel-header">
+            <h2>Projects</h2>
+            <div style="display: flex; gap: 8px">
+              <button class="btn btn-secondary" onclick="app.openGuideModal()">
+                <i class="fas fa-book"></i> Integration Guide
+              </button>
+              <button class="btn btn-secondary" onclick="app.checkUpdates()">
+                <i class="fas fa-sync"></i> Check Updates
+              </button>
+              <button class="btn btn-primary" onclick="app.openProjectModal()">
+                + Add Project
+              </button>
             </div>
-            <ul class="nav-links">
-                <li class="active" data-tab="dashboard">Dashboard</li>
-                <li data-tab="servers">Servers</li>
-                <li data-tab="projects">Projects & Envs</li>
-                <li data-tab="environments">Environments</li>
-                <li data-tab="settings">Settings</li>
-            </ul>
-        </nav>
+          </div>
+          <div class="glass-panel">
+            <table id="projects-table" class="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Server</th>
+                  <th>Container</th>
+                  <th>GitHub Repo</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
 
-        <main class="content-area">
+        <!-- Environments View -->
+        <div id="environments" class="view">
+          <div class="panel-header">
+            <h2>Global Environments</h2>
+            <button
+              class="btn btn-primary"
+              onclick="app.openEnvironmentModal()"
+            >
+              + Add Environment
+            </button>
+          </div>
+          <div class="glass-panel">
+            <table id="environments-table" class="data-table">
+              <thead>
+                <tr>
+                  <th>Key</th>
+                  <th>Value</th>
+                  <th>Description</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
 
+        <!-- Settings View -->
+        <section id="settings" class="view">
+          <header class="view-header">
+            <h1>Settings</h1>
+          </header>
 
-            <!-- Global System Update Banner -->
-            <div id="system-update-banner" style="display: none; background: rgba(56, 189, 248, 0.15); border: 1px solid var(--primary); padding: 12px 20px; border-radius: 8px; margin-bottom: 24px; justify-content: space-between; align-items: center; cursor: pointer;" onclick="app.switchTab('settings')">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <i class="fas fa-rocket" style="color: var(--primary); font-size: 20px;"></i>
-                    <span style="color: var(--text-primary); font-weight: 500;">A new version of Main Center is available!</span>
+          <div class="settings-card" style="margin-top: 20px">
+            <h3 style="display: flex; align-items: center; gap: 8px">
+              <i class="fab fa-docker" style="color: var(--primary)"></i>
+              Self-Update Registry (GHCR)
+            </h3>
+            <p>
+              GHCR credentials are required for pulling private Docker images
+              during self-update.
+            </p>
+            <div id="settings-ghcr-container" style="margin-top: 16px">
+              <div id="settings-ghcr-unconfigured">
+                <form id="settings-ghcr-form">
+                  <div class="grid-2">
+                    <div class="form-group">
+                      <label>GHCR Username</label>
+                      <input
+                        type="text"
+                        id="setting-ghcr-username"
+                        placeholder="GitHub username"
+                        required
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label>GHCR Token (PAT)</label>
+                      <input
+                        type="password"
+                        id="setting-ghcr-token"
+                        placeholder="GitHub Personal Access Token"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-primary">
+                    Save Credentials
+                  </button>
+                </form>
+              </div>
+              <div id="settings-ghcr-configured" style="display: none">
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    background: rgba(16, 185, 129, 0.1);
+                    border: 1px solid rgba(16, 185, 129, 0.3);
+                    padding: 16px;
+                    border-radius: 8px;
+                  "
+                >
+                  <div style="display: flex; align-items: center; gap: 12px">
+                    <i
+                      class="fas fa-check-circle"
+                      style="color: var(--success); font-size: 20px"
+                    ></i>
+                    <span>GHCR credentials are configured.</span>
+                  </div>
+                  <button
+                    class="btn btn-secondary"
+                    onclick="app.openGhcrModal()"
+                  >
+                    Change Credentials
+                  </button>
                 </div>
-                <button class="btn btn-primary" onclick="event.stopPropagation(); app.triggerSystemUpdate()">Update Now</button>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="settings-card"
+            style="margin-top: 24px; border-color: var(--primary)"
+          >
+            <h3 style="display: flex; align-items: center; gap: 8px">
+              <i class="fas fa-sync" style="color: var(--primary)"></i> System
+              Updates
+            </h3>
+            <p
+              style="
+                color: var(--text-secondary);
+                font-size: 14px;
+                margin-bottom: 16px;
+              "
+            >
+              Manage updates for the Main Center agent itself. The agent
+              periodically checks for updates at
+              <code>ghcr.io/tjdrbs205/main_center:latest</code>.
+            </p>
+
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                background: rgba(0, 0, 0, 0.2);
+                padding: 16px;
+                border-radius: 8px;
+                margin-bottom: 16px;
+              "
+            >
+              <div>
+                <h4
+                  style="margin: 0 0 4px 0; font-size: 16px"
+                  id="system-update-status-text"
+                >
+                  Status: Up to date
+                </h4>
+                <p
+                  style="
+                    margin: 0;
+                    color: var(--text-secondary);
+                    font-size: 13px;
+                  "
+                  id="system-update-digest-text"
+                >
+                  Last Digest: Unknown
+                </p>
+              </div>
+              <div style="display: flex; gap: 8px">
+                <button
+                  class="btn btn-secondary"
+                  onclick="app.checkSystemUpdate()"
+                >
+                  Check for Updates
+                </button>
+                <button
+                  class="btn btn-primary"
+                  id="system-update-btn"
+                  style="display: none"
+                  onclick="app.triggerSystemUpdate()"
+                >
+                  <i class="fas fa-download"></i> Update Now
+                </button>
+              </div>
             </div>
 
-            <!-- Dashboard View -->
-            <section id="dashboard" class="view active">
-                <header class="view-header">
-                    <h1>Dashboard</h1>
-                    <p>Overview of all deployed services and health statuses.</p>
-                </header>
-                <div class="stats-grid" id="dashboard-stats">
-                    <!-- Stats populated by JS -->
-                </div>
-                <div class="health-grid" id="health-grid">
-                    <!-- Health cards populated by JS -->
-                </div>
-            </section>
-
-            <!-- Servers View -->
-            <section id="servers" class="view">
-                <header class="view-header">
-                    <h1>Target Servers</h1>
-                    <button class="btn btn-primary" onclick="app.openServerModal()">+ Add Server</button>
-                </header>
-                <div class="table-container">
-                    <table class="data-table" id="servers-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Hostname/IP</th>
-                                <th>User</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </section>
-
-            <!-- Projects View -->
-            <div id="projects" class="view">
-                <div class="panel-header">
-                    <h2>Projects</h2>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn btn-secondary" onclick="app.openGuideModal()"><i class="fas fa-book"></i> Integration Guide</button>
-                        <button class="btn btn-secondary" onclick="app.checkUpdates()"><i class="fas fa-sync"></i> Check Updates</button>
-                        <button class="btn btn-primary" onclick="app.openProjectModal()">+ Add Project</button>
-                    </div>
-                </div>
-                <div class="glass-panel">
-                    <table id="projects-table" class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Server</th>
-                                <th>Container</th>
-                                <th>GitHub Repo</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
+            <div class="form-group" style="margin: 0">
+              <label
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 12px;
+                  cursor: pointer;
+                "
+              >
+                <input
+                  type="checkbox"
+                  id="system-auto-update-toggle"
+                  onchange="app.toggleSystemAutoUpdate(event)"
+                />
+                <span style="font-weight: 500">Enable Auto Update</span>
+              </label>
+              <p
+                style="
+                  margin: 4px 0 0 28px;
+                  color: var(--text-secondary);
+                  font-size: 13px;
+                "
+              >
+                Automatically pull and apply the latest Main Center updates when
+                available.
+              </p>
             </div>
-            
-            <!-- Environments View -->
-            <div id="environments" class="view">
-                <div class="panel-header">
-                    <h2>Global Environments</h2>
-                    <button class="btn btn-primary" onclick="app.openEnvironmentModal()">+ Add Environment</button>
-                </div>
-                <div class="glass-panel">
-                    <table id="environments-table" class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Key</th>
-                                <th>Value</th>
-                                <th>Description</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Settings View -->
-            <section id="settings" class="view">
-                <header class="view-header">
-                    <h1>Settings</h1>
-                </header>
-                
-
-
-                <div class="settings-card" style="margin-top: 20px;">
-                    <h3 style="display: flex; align-items: center; gap: 8px;"><i class="fab fa-docker" style="color: var(--primary);"></i> Self-Update Registry (GHCR)</h3>
-                    <p>GHCR credentials are required for pulling private Docker images during self-update.</p>
-                    <div id="settings-ghcr-container" style="margin-top: 16px;">
-                        <div id="settings-ghcr-unconfigured">
-                            <form id="settings-ghcr-form">
-                                <div class="grid-2">
-                                    <div class="form-group">
-                                        <label>GHCR Username</label>
-                                        <input type="text" id="setting-ghcr-username" placeholder="GitHub username" required>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>GHCR Token (PAT)</label>
-                                        <input type="password" id="setting-ghcr-token" placeholder="GitHub Personal Access Token" required>
-                                    </div>
-                                </div>
-                                <button type="submit" class="btn btn-primary">Save Credentials</button>
-                            </form>
-                        </div>
-                        <div id="settings-ghcr-configured" style="display: none;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 16px; border-radius: 8px;">
-                                <div style="display: flex; align-items: center; gap: 12px;">
-                                    <i class="fas fa-check-circle" style="color: var(--success); font-size: 20px;"></i>
-                                    <span>GHCR credentials are configured.</span>
-                                </div>
-                                <button class="btn btn-secondary" onclick="app.openGhcrModal()">Change Credentials</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="settings-card" style="margin-top: 24px; border-color: var(--primary);">
-                    <h3 style="display: flex; align-items: center; gap: 8px;">
-                        <i class="fas fa-sync" style="color: var(--primary);"></i> System Updates
-                    </h3>
-                    <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">
-                        Manage updates for the Main Center agent itself. The agent periodically checks for updates at <code>ghcr.io/tjdrbs205/main_center:latest</code>.
-                    </p>
-                    
-                    <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
-                        <div>
-                            <h4 style="margin: 0 0 4px 0; font-size: 16px;" id="system-update-status-text">Status: Up to date</h4>
-                            <p style="margin: 0; color: var(--text-secondary); font-size: 13px;" id="system-update-digest-text">Last Digest: Unknown</p>
-                        </div>
-                        <div style="display: flex; gap: 8px;">
-                            <button class="btn btn-secondary" onclick="app.checkSystemUpdate()"><i class="fas fa-search"></i> Check for Updates</button>
-                            <button class="btn btn-primary" id="system-update-btn" style="display: none;" onclick="app.triggerSystemUpdate()"><i class="fas fa-download"></i> Update Now</button>
-                        </div>
-                    </div>
-
-                    <div class="form-group" style="margin: 0;">
-                        <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
-                            <input type="checkbox" id="system-auto-update-toggle" onchange="app.toggleSystemAutoUpdate(event)">
-                            <span style="font-weight: 500;">Enable Auto Update</span>
-                        </label>
-                        <p style="margin: 4px 0 0 28px; color: var(--text-secondary); font-size: 13px;">Automatically pull and apply the latest Main Center updates when available.</p>
-                    </div>
-                </div>
-            </section>
-        </main>
+          </div>
+        </section>
+      </main>
     </div>
 
     <!-- Modals -->
     <div id="server-modal" class="modal-overlay">
-        <div class="modal glass-panel">
-            <h2 id="server-modal-title">Add Server</h2>
-            <form id="server-form">
-                <input type="hidden" id="server-id">
-                <div class="form-group">
-                    <label>Name</label>
-                    <input type="text" id="server-name" required placeholder="e.g. Production 1">
-                </div>
-                <div class="form-group">
-                    <label>IP / Hostname</label>
-                    <input type="text" id="server-ip" required placeholder="192.168.1.10">
-                </div>
-                <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" id="server-user" required placeholder="ubuntu">
-                </div>
-                <div class="form-group">
-                    <label>SSH Private Key (Optional)</label>
-                    <textarea id="server-key" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Password (Optional)</label>
-                    <input type="password" id="server-pass" placeholder="Password (if no key)">
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Server</button>
-                </div>
-            </form>
-        </div>
+      <div class="modal glass-panel">
+        <h2 id="server-modal-title">Add Server</h2>
+        <form id="server-form">
+          <input type="hidden" id="server-id" />
+          <div class="form-group">
+            <label>Name</label>
+            <input
+              type="text"
+              id="server-name"
+              required
+              placeholder="e.g. Production 1"
+            />
+          </div>
+          <div class="form-group">
+            <label>IP / Hostname</label>
+            <input
+              type="text"
+              id="server-ip"
+              required
+              placeholder="192.168.1.10"
+            />
+          </div>
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="server-user" required placeholder="ubuntu" />
+          </div>
+          <div class="form-group">
+            <label>SSH Private Key (Optional)</label>
+            <textarea
+              id="server-key"
+              placeholder="-----BEGIN OPENSSH PRIVATE KEY-----..."
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label>Password (Optional)</label>
+            <input
+              type="password"
+              id="server-pass"
+              placeholder="Password (if no key)"
+            />
+          </div>
+          <div class="modal-actions">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              onclick="app.closeModals()"
+            >
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">Save Server</button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <div id="project-modal" class="modal-overlay">
-        <div class="modal modal-lg glass-panel">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h2 id="project-modal-title" style="margin: 0;">Add Project</h2>
-            </div>
-            <form id="project-form">
-                <input type="hidden" id="project-id">
-                <div class="grid-2">
-                    <div class="form-group">
-                        <label>Project Name</label>
-                        <input type="text" id="project-name" required placeholder="My Web App">
-                    </div>
-                    <div class="form-group">
-                        <label>Target Server</label>
-                        <select id="project-server" required></select>
-                    </div>
-                    <div class="form-group">
-                        <label>GitHub Repository (For Polling)</label>
-                        <select id="project-github-repo">
-                            <option value="">-- None (Manual Image Only) --</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Docker Image</label>
-                        <input type="text" id="project-image" required placeholder="ghcr.io/user/repo:latest">
-                    </div>
-                    <div class="form-group">
-                        <label>Container Name</label>
-                        <input type="text" id="project-container" required placeholder="my_web_app">
-                    </div>
-                    <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" id="project-auto-update" style="width: 18px; height: 18px;">
-                        <label for="project-auto-update" style="margin: 0; cursor: pointer;">Enable Auto Update</label>
-                    </div>
-                </div>
-
-                <div class="form-group mt-2">
-                    <label>docker-compose.yml</label>
-                    <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">Write your docker-compose.yml configuration here. Use <code>env_file: [".env"]</code> to inject the variables below.</p>
-                    <textarea id="project-compose" rows="8" required style="font-family: monospace;" placeholder="version: '3.8'\nservices:\n  app:\n    image: my-image:latest\n    env_file: ['.env']"></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label>Environment Variables</label>
-                    <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">You can select from global environments or add custom ones.</p>
-                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                        <select id="env-select-dropdown" style="flex: 1; padding: 8px; border-radius: 4px; background: rgba(0,0,0,0.3); color: #fff; border: 1px solid var(--border-glass);">
-                            <option value="">Select an environment to add...</option>
-                        </select>
-                        <button type="button" class="btn btn-secondary" onclick="app.addEnvFromPool()">Add from Pool</button>
-                        <button type="button" class="btn btn-secondary" onclick="app.addEnvRow()">Add Custom</button>
-                    </div>
-                    <div id="env-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto;">
-                        <!-- Env rows added here -->
-                    </div>
-                </div>
-
-                <div class="modal-actions mt-2">
-                    <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Project</button>
-                </div>
-            </form>
+      <div class="modal modal-lg glass-panel">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+          "
+        >
+          <h2 id="project-modal-title" style="margin: 0">Add Project</h2>
         </div>
+        <form id="project-form">
+          <input type="hidden" id="project-id" />
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Project Name</label>
+              <input
+                type="text"
+                id="project-name"
+                required
+                placeholder="My Web App"
+              />
+            </div>
+            <div class="form-group">
+              <label>Target Server</label>
+              <select id="project-server" required></select>
+            </div>
+            <div class="form-group">
+              <label>GitHub Repository (For Polling)</label>
+              <select id="project-github-repo">
+                <option value="">-- None (Manual Image Only) --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Docker Image</label>
+              <input
+                type="text"
+                id="project-image"
+                required
+                placeholder="ghcr.io/user/repo:latest"
+              />
+            </div>
+            <div class="form-group">
+              <label>Container Name</label>
+              <input
+                type="text"
+                id="project-container"
+                required
+                placeholder="my_web_app"
+              />
+            </div>
+            <div
+              class="form-group"
+              style="display: flex; align-items: center; gap: 8px"
+            >
+              <input
+                type="checkbox"
+                id="project-auto-update"
+                style="width: 18px; height: 18px"
+              />
+              <label
+                for="project-auto-update"
+                style="margin: 0; cursor: pointer"
+                >Enable Auto Update</label
+              >
+            </div>
+          </div>
+
+          <div class="form-group mt-2">
+            <label>docker-compose.yml</label>
+            <p
+              style="
+                font-size: 12px;
+                color: var(--text-secondary);
+                margin-bottom: 8px;
+              "
+            >
+              Write your docker-compose.yml configuration here. Use
+              <code>env_file: [".env"]</code> to inject the variables below.
+            </p>
+            <textarea
+              id="project-compose"
+              rows="8"
+              required
+              style="font-family: monospace"
+              placeholder="version: '3.8'\nservices:\n  app:\n    image: my-image:latest\n    env_file: ['.env']"
+            ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Environment Variables</label>
+            <p
+              style="
+                font-size: 12px;
+                color: var(--text-secondary);
+                margin-bottom: 8px;
+              "
+            >
+              You can select from global environments or add custom ones.
+            </p>
+            <div style="display: flex; gap: 8px; margin-bottom: 12px">
+              <select
+                id="env-select-dropdown"
+                style="
+                  flex: 1;
+                  padding: 8px;
+                  border-radius: 4px;
+                  background: rgba(0, 0, 0, 0.3);
+                  color: #fff;
+                  border: 1px solid var(--border-glass);
+                "
+              >
+                <option value="">Select an environment to add...</option>
+              </select>
+              <button
+                type="button"
+                class="btn btn-secondary"
+                onclick="app.addEnvFromPool()"
+              >
+                Add from Pool
+              </button>
+              <button
+                type="button"
+                class="btn btn-secondary"
+                onclick="app.addEnvRow()"
+              >
+                Add Custom
+              </button>
+            </div>
+            <div
+              id="env-list"
+              style="
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                max-height: 200px;
+                overflow-y: auto;
+              "
+            >
+              <!-- Env rows added here -->
+            </div>
+          </div>
+
+          <div class="modal-actions mt-2">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              onclick="app.closeModals()"
+            >
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">Save Project</button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <!-- Environment Edit Modal -->
     <div id="environment-modal" class="modal-overlay">
-        <div class="modal glass-panel">
-            <h2 id="environment-title">Add Environment</h2>
-            <form id="environment-form">
-                <input type="hidden" id="environment-id">
-                <div class="form-group">
-                    <label>Key</label>
-                    <input type="text" id="environment-key" required placeholder="e.g. DATABASE_URL">
-                </div>
-                <div class="form-group">
-                    <label>Value</label>
-                    <input type="text" id="environment-value" required placeholder="Value">
-                </div>
-                <div class="form-group">
-                    <label>Description</label>
-                    <input type="text" id="environment-description" placeholder="Optional notes">
-                </div>
-                <div class="modal-actions mt-2">
-                    <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Environment</button>
-                </div>
-            </form>
-        </div>
+      <div class="modal glass-panel">
+        <h2 id="environment-title">Add Environment</h2>
+        <form id="environment-form">
+          <input type="hidden" id="environment-id" />
+          <div class="form-group">
+            <label>Key</label>
+            <input
+              type="text"
+              id="environment-key"
+              required
+              placeholder="e.g. DATABASE_URL"
+            />
+          </div>
+          <div class="form-group">
+            <label>Value</label>
+            <input
+              type="text"
+              id="environment-value"
+              required
+              placeholder="Value"
+            />
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <input
+              type="text"
+              id="environment-description"
+              placeholder="Optional notes"
+            />
+          </div>
+          <div class="modal-actions mt-2">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              onclick="app.closeModals()"
+            >
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">
+              Save Environment
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <!-- Integration Guide Modal -->
     <div id="guide-modal" class="modal-overlay">
-        <div class="modal modal-lg glass-panel">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-                <h2 style="margin-bottom: 0;">GitHub Action Integration Guide</h2>
-                <button class="btn btn-sm btn-secondary" onclick="app.closeModals()">Close</button>
-            </div>
-            <div style="display: flex; gap: 16px; margin-bottom: 16px;">
-                <div class="form-group" style="flex: 1; margin: 0;">
-                    <label>Select Project</label>
-                    <select id="guide-project" onchange="app.generateGuideCode()"></select>
-                </div>
-            </div>
-            <p style="color: var(--text-secondary); margin-bottom: 16px;">Copy this YAML and use it in your project's <code>.github/workflows/deploy.yml</code>.</p>
-            <pre id="guide-code" style="background: rgba(0,0,0,0.5); padding: 16px; border-radius: 8px; overflow-x: auto; color: #e2e8f0; font-size: 13px; line-height: 1.5; border: 1px solid var(--border-glass); min-height: 100px;">Please select a project and a template.</pre>
-            <div class="modal-actions mt-2">
-                <button class="btn btn-primary" onclick="app.copyGuideCode()">Copy to Clipboard</button>
-            </div>
+      <div class="modal modal-lg glass-panel">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+          "
+        >
+          <h2 style="margin-bottom: 0">GitHub Action Integration Guide</h2>
+          <button class="btn btn-sm btn-secondary" onclick="app.closeModals()">
+            Close
+          </button>
         </div>
+        <div style="display: flex; gap: 16px; margin-bottom: 16px">
+          <div class="form-group" style="flex: 1; margin: 0">
+            <label>Select Project</label>
+            <select
+              id="guide-project"
+              onchange="app.generateGuideCode()"
+            ></select>
+          </div>
+        </div>
+        <p style="color: var(--text-secondary); margin-bottom: 16px">
+          Copy this YAML and use it in your project's
+          <code>.github/workflows/deploy.yml</code>.
+        </p>
+        <pre
+          id="guide-code"
+          style="
+            background: rgba(0, 0, 0, 0.5);
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            color: #e2e8f0;
+            font-size: 13px;
+            line-height: 1.5;
+            border: 1px solid var(--border-glass);
+            min-height: 100px;
+          "
+        >
+Please select a project and a template.</pre
+        >
+        <div class="modal-actions mt-2">
+          <button class="btn btn-primary" onclick="app.copyGuideCode()">
+            Copy to Clipboard
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- System Update Logs Modal -->
     <div id="update-logs-modal" class="modal-overlay">
-        <div class="modal glass-panel" style="max-width: 800px; width: 90%;">
-            <h2>System Update Progress</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 16px;">The update is currently in progress. Please do not close this window.</p>
-            <div id="update-logs-container" style="background: #0f172a; border: 1px solid var(--border-glass); border-radius: 8px; padding: 16px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 13px; color: #a5b4fc; line-height: 1.5; white-space: pre-wrap; margin-bottom: 16px;">
-                Waiting for logs...
-            </div>
-            <div class="modal-actions">
-                <!-- Buttons can be added here if needed, but usually it auto-reloads -->
-            </div>
+      <div class="modal glass-panel" style="max-width: 800px; width: 90%">
+        <h2>System Update Progress</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 16px">
+          The update is currently in progress. Please do not close this window.
+        </p>
+        <div
+          id="update-logs-container"
+          style="
+            background: #0f172a;
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            padding: 16px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 13px;
+            color: #a5b4fc;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            margin-bottom: 16px;
+          "
+        >
+          Waiting for logs...
         </div>
+        <div class="modal-actions">
+          <!-- Buttons can be added here if needed, but usually it auto-reloads -->
+        </div>
+      </div>
     </div>
     <!-- GHCR Credentials Modal -->
     <div id="ghcr-modal" class="modal-overlay">
-        <div class="modal glass-panel">
-            <h2>Change GHCR Credentials</h2>
-            <form id="ghcr-modal-form">
-                <div class="form-group">
-                    <label>GHCR Username</label>
-                    <input type="text" id="modal-ghcr-username" placeholder="GitHub username" required>
-                </div>
-                <div class="form-group">
-                    <label>GHCR Token (PAT)</label>
-                    <input type="password" id="modal-ghcr-token" placeholder="GitHub Personal Access Token" required>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="app.closeModals()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
-                </div>
-            </form>
-        </div>
+      <div class="modal glass-panel">
+        <h2>Change GHCR Credentials</h2>
+        <form id="ghcr-modal-form">
+          <div class="form-group">
+            <label>GHCR Username</label>
+            <input
+              type="text"
+              id="modal-ghcr-username"
+              placeholder="GitHub username"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label>GHCR Token (PAT)</label>
+            <input
+              type="password"
+              id="modal-ghcr-token"
+              placeholder="GitHub Personal Access Token"
+              required
+            />
+          </div>
+          <div class="modal-actions">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              onclick="app.closeModals()"
+            >
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <!-- Initial Setup Modal (GitHub OAuth App) -->
     <div id="initial-setup-modal" class="modal-overlay">
-        <div class="modal glass-panel">
-            <h2 style="color: #3b82f6;">Welcome to Main Center</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px;">To get started with pull-based deployments, please configure your GitHub OAuth App.</p>
-            <form id="initial-setup-form">
-                <div class="form-group">
-                    <label>GitHub Client ID</label>
-                    <input type="text" id="setup-client-id" required placeholder="e.g. Iv1.8a7b...">
-                </div>
-                <div class="form-group">
-                    <label>GitHub Client Secret</label>
-                    <input type="password" id="setup-client-secret" required placeholder="e.g. 5f9e...">
-                </div>
-                <div class="modal-actions mt-2">
-                    <button type="submit" class="btn btn-primary" style="width: 100%;">Save and Connect to GitHub</button>
-                </div>
-            </form>
-        </div>
+      <div class="modal glass-panel">
+        <h2 style="color: #3b82f6">Welcome to Main Center</h2>
+        <p
+          style="
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            font-size: 14px;
+          "
+        >
+          To get started with pull-based deployments, please configure your
+          GitHub OAuth App.
+        </p>
+        <form id="initial-setup-form">
+          <div class="form-group">
+            <label>GitHub Client ID</label>
+            <input
+              type="text"
+              id="setup-client-id"
+              required
+              placeholder="e.g. Iv1.8a7b..."
+            />
+          </div>
+          <div class="form-group">
+            <label>GitHub Client Secret</label>
+            <input
+              type="password"
+              id="setup-client-secret"
+              required
+              placeholder="e.g. 5f9e..."
+            />
+          </div>
+          <div class="modal-actions mt-2">
+            <button type="submit" class="btn btn-primary" style="width: 100%">
+              Save and Connect to GitHub
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <!-- Notification Toast -->
     <div id="toast" class="toast">Message</div>
 
     <script src="app.js"></script>
-</body>
+  </body>
 </html>
