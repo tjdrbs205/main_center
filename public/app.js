@@ -726,7 +726,7 @@ jobs:
             repos.forEach(repo => {
                 const opt = document.createElement('option');
                 opt.value = repo.name;
-                opt.innerText = repo.name + (repo.private ? ' 🔒' : '');
+                opt.innerText = repo.name + (repo.private ? ' [Private]' : '');
                 select.appendChild(opt);
             });
         } catch (e) {

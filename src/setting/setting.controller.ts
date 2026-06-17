@@ -14,32 +14,6 @@ export class SettingController {
     };
   }
 
-  @Get(':key')
-  async getSetting(@Param('key') key: string) {
-    if (key === 'AGENT_SECRET_TOKEN' || key === 'GITHUB_CLIENT_SECRET' || key === 'GHCR_TOKEN') {
-      const val = await this.settingService.getValue(key);
-      return { isSet: !!val };
-    }
-    const value = await this.settingService.getValue(key);
-    return { value };
-  }
-
-  @Put(':key')
-  async updateSetting(
-    @Param('key') key: string,
-    @Body('value') value: string,
-  ) {
-    await this.settingService.setValue(key, value);
-    return { success: true };
-  }
-
-  @Post('self-update')
-  async selfUpdate() {
-    // Run in background so frontend can poll logs
-    this.settingService.handleSelfUpdate().catch(e => console.error(e));
-    return { success: true, message: 'Update started' };
-  }
-
   @Get('system-update/logs')
   getSystemUpdateLogs() {
     return { logs: this.settingService.getUpdateLogs() };
@@ -61,5 +35,32 @@ export class SettingController {
   @Post('system-update/check')
   async checkSystemUpdate() {
     return this.settingService.checkSystemUpdate();
+  }
+
+  @Post('self-update')
+  async selfUpdate() {
+    // Run in background so frontend can poll logs
+    this.settingService.handleSelfUpdate().catch(e => console.error(e));
+    return { success: true, message: 'Update started' };
+  }
+
+  @Put(':key')
+  async updateSetting(
+    @Param('key') key: string,
+    @Body('value') value: string,
+  ) {
+    await this.settingService.setValue(key, value);
+    return { success: true };
+  }
+
+  // Wildcard route MUST be last to avoid intercepting specific routes above
+  @Get(':key')
+  async getSetting(@Param('key') key: string) {
+    if (key === 'AGENT_SECRET_TOKEN' || key === 'GITHUB_CLIENT_SECRET' || key === 'GHCR_TOKEN') {
+      const val = await this.settingService.getValue(key);
+      return { isSet: !!val };
+    }
+    const value = await this.settingService.getValue(key);
+    return { value };
   }
 }
