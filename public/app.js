@@ -714,6 +714,17 @@ jobs:
             this.fetchHealth();
             this.fetchProjects();
         } catch(e) {
+            let errorMsg = 'Deployment failed.';
+            try {
+                const parsed = JSON.parse(e.message);
+                if (parsed.message) errorMsg = parsed.message;
+                if (parsed.details) errorMsg += '\n\nDetails:\n' + parsed.details;
+            } catch {
+                if (e.message && e.message !== '[object Object]') {
+                    errorMsg += '\n\nDetails:\n' + e.message;
+                }
+            }
+            alert(`[Deployment Error]\n\n${errorMsg}`);
             this.showToast('Deployment failed.', true);
         }
     },

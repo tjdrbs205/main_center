@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { Client, ConnectConfig } from 'ssh2';
 import { Server } from '../server/server.entity';
 import { Project } from '../project/project.entity';
@@ -94,7 +94,10 @@ export class DeployService {
       return output;
     } catch (e) {
       this.logger.error(`Deployment failed for ${project.name}: ${e.message}`);
-      throw e;
+      throw new HttpException({
+        message: `Deployment failed for ${project.name}`,
+        details: e.message
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
