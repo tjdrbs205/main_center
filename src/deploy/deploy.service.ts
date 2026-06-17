@@ -22,7 +22,16 @@ export class DeployService {
       };
 
       if (server.privateKey) {
-        config.privateKey = server.privateKey;
+        // Normalize: trim whitespace, ensure consistent LF line endings, ensure trailing newline
+        let key = server.privateKey.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        if (!key.endsWith('\n')) key += '\n';
+
+        if (!key.includes('-----BEGIN') || !key.includes('-----END')) {
+          return reject(new Error(
+            'Invalid SSH private key format. The key must be in PEM format (e.g., -----BEGIN OPENSSH PRIVATE KEY-----).'
+          ));
+        }
+        config.privateKey = key;
       } else if (server.password) {
         config.password = server.password;
       }
