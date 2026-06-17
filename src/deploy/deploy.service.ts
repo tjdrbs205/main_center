@@ -45,35 +45,21 @@ export class DeployService {
         if (!silent) this.logger.log(`[SSH] Auth method: password`);
         config.password = server.password;
       } else {
-        if (!silent) this.logger.log(`[SSH] Auth method: no explicit credentials, trying system default SSH keys...`);
-        const defaultKeyNames = ['id_ed25519', 'id_rsa', 'id_ecdsa'];
-        const sshDir = path.join(os.homedir(), '.ssh');
-        if (!silent) this.logger.log(`[SSH] Scanning SSH dir: ${sshDir}`);
-        let foundKey = false;
-        for (const keyName of defaultKeyNames) {
-          const keyPath = path.join(sshDir, keyName);
-          try {
-            if (fs.existsSync(keyPath)) {
-              const keyContent = fs.readFileSync(keyPath, 'utf-8');
-              const firstLine = keyContent.split('\n')[0];
-              if (!silent) this.logger.log(`[SSH] Found key: ${keyPath} (header: "${firstLine}", length=${keyContent.length})`);
-              config.privateKey = keyContent;
-              foundKey = true;
-              break;
-            } else {
-              if (!silent) this.logger.debug(`[SSH] Key not found: ${keyPath}`);
-            }
-          } catch (e) {
-            if (!silent) this.logger.warn(`[SSH] Cannot read ${keyPath}: ${e.message}`);
+        if (!silent) this.logger.log(`[SSH] Auth method: no explicit credentials, delegating to native OS ssh command...`);
+        const { exec } = require('child_process');
+        const sshCmd = `ssh -o StrictHostKeyChecking=no -p ${server.port || 22} ${server.username}@${server.ipOrHostname} ${JSON.stringify(command)}`;
+        if (!silent) this.logger.log(`[SSH] Executing native command: ${sshCmd.substring(0, 100)}...`);
+        
+        exec(sshCmd, (error, stdout, stderr) => {
+          if (error) {
+            if (!silent) this.logger.error(`[SSH Native] exec error: ${error.message}`);
+            if (!silent) this.logger.error(`[SSH Native] stderr: ${stderr}`);
+            return reject(error);
           }
-        }
-        if (!foundKey && process.env.SSH_AUTH_SOCK) {
-          config.agent = process.env.SSH_AUTH_SOCK;
-          if (!silent) this.logger.log(`[SSH] Using SSH agent: ${process.env.SSH_AUTH_SOCK}`);
-        }
-        if (!foundKey && !process.env.SSH_AUTH_SOCK) {
-          if (!silent) this.logger.warn(`[SSH] No authentication method available. Connection will likely fail.`);
-        }
+          if (!silent) this.logger.log(`[SSH Native] Command completed successfully.`);
+          resolve(stdout);
+        });
+        return; // Early return since we are not using the ssh2 conn object
       }
 
       if (!silent) this.logger.log(`[SSH] Attempting connection...`);
@@ -102,10 +88,26 @@ export class DeployService {
           });
         });
       }).on('error', (err) => {
-        if (!silent) this.logger.error(`[SSH] Connection error: ${err.message}`);
+        if (!silent) this.logger.error(`[SSH] Connection error event: ${err.message}`);
         if (!silent) this.logger.error(`[SSH] Error stack: ${err.stack}`);
         reject(err);
-      }).connect(config);
+      });
+
+      try {
+        if (!silent) {
+          const safeConfig = { ...config };
+          if (safeConfig.privateKey) safeConfig.privateKey = `[HIDDEN, length=${safeConfig.privateKey.length}]`;
+          if (safeConfig.password) safeConfig.password = '[HIDDEN]';
+          this.logger.log(`[SSH] Calling conn.connect() with config: ${JSON.stringify(safeConfig)}`);
+        }
+        conn.connect(config);
+      } catch (err) {
+        if (!silent) {
+          this.logger.error(`[SSH] Immediate exception during connect(): ${err.message}`);
+          this.logger.error(`[SSH] Exception stack: ${err.stack}`);
+        }
+        reject(err);
+      }
     });
   }
 
