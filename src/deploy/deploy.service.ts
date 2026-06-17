@@ -4,6 +4,9 @@ import { Server } from '../server/server.entity';
 import { Project } from '../project/project.entity';
 import { Environment } from '../environment/environment.entity';
 import { SettingService } from '../setting/setting.service';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 
 @Injectable()
 export class DeployService {
@@ -28,12 +31,35 @@ export class DeployService {
 
         if (!key.includes('-----BEGIN') || !key.includes('-----END')) {
           return reject(new Error(
-            'Invalid SSH private key format. The key must be in PEM format (e.g., -----BEGIN OPENSSH PRIVATE KEY-----).'
+            'Invalid SSH private key format. The key must be in PEM format (e.g., -----BEGIN OPENSSH PRIVATE KEY-----).',
           ));
         }
         config.privateKey = key;
       } else if (server.password) {
         config.password = server.password;
+      } else {
+        // No explicit credentials: try system default SSH keys
+        const defaultKeyNames = ['id_ed25519', 'id_rsa', 'id_ecdsa'];
+        const sshDir = path.join(os.homedir(), '.ssh');
+        let foundKey = false;
+        for (const keyName of defaultKeyNames) {
+          const keyPath = path.join(sshDir, keyName);
+          try {
+            if (fs.existsSync(keyPath)) {
+              config.privateKey = fs.readFileSync(keyPath, 'utf-8');
+              this.logger.debug(`Using default SSH key: ${keyPath}`);
+              foundKey = true;
+              break;
+            }
+          } catch (e) {
+            this.logger.debug(`Cannot read ${keyPath}: ${e.message}`);
+          }
+        }
+        // Also try SSH agent if available
+        if (!foundKey && process.env.SSH_AUTH_SOCK) {
+          config.agent = process.env.SSH_AUTH_SOCK;
+          this.logger.debug('Using SSH agent for authentication.');
+        }
       }
 
       conn.on('ready', () => {
