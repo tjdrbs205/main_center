@@ -14,8 +14,8 @@ export class DeployService {
 
   constructor(private readonly settingService: SettingService) {}
 
-  private async executeSshCommand(server: Server, command: string): Promise<string> {
-    this.logger.log(`[SSH] Connecting to ${server.username}@${server.ipOrHostname}:${server.port || 22}`);
+  private async executeSshCommand(server: Server, command: string, silent: boolean = false): Promise<string> {
+    if (!silent) this.logger.log(`[SSH] Connecting to ${server.username}@${server.ipOrHostname}:${server.port || 22}`);
 
     return new Promise((resolve, reject) => {
       const conn = new Client();
@@ -28,27 +28,27 @@ export class DeployService {
 
       // --- Authentication method selection ---
       if (server.privateKey) {
-        this.logger.log(`[SSH] Auth method: explicit privateKey from DB (length=${server.privateKey.length})`);
+        if (!silent) this.logger.log(`[SSH] Auth method: explicit privateKey from DB (length=${server.privateKey.length})`);
         let key = server.privateKey.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         if (!key.endsWith('\n')) key += '\n';
 
         const firstLine = key.split('\n')[0];
-        this.logger.log(`[SSH] Key header: "${firstLine}"`);
+        if (!silent) this.logger.log(`[SSH] Key header: "${firstLine}"`);
 
         if (!key.includes('-----BEGIN') || !key.includes('-----END')) {
           const errMsg = 'Invalid SSH private key format. The key must be in PEM format (e.g., -----BEGIN OPENSSH PRIVATE KEY-----).';
-          this.logger.error(`[SSH] ${errMsg}`);
+          if (!silent) this.logger.error(`[SSH] ${errMsg}`);
           return reject(new Error(errMsg));
         }
         config.privateKey = key;
       } else if (server.password) {
-        this.logger.log(`[SSH] Auth method: password`);
+        if (!silent) this.logger.log(`[SSH] Auth method: password`);
         config.password = server.password;
       } else {
-        this.logger.log(`[SSH] Auth method: no explicit credentials, trying system default SSH keys...`);
+        if (!silent) this.logger.log(`[SSH] Auth method: no explicit credentials, trying system default SSH keys...`);
         const defaultKeyNames = ['id_ed25519', 'id_rsa', 'id_ecdsa'];
         const sshDir = path.join(os.homedir(), '.ssh');
-        this.logger.log(`[SSH] Scanning SSH dir: ${sshDir}`);
+        if (!silent) this.logger.log(`[SSH] Scanning SSH dir: ${sshDir}`);
         let foundKey = false;
         for (const keyName of defaultKeyNames) {
           const keyPath = path.join(sshDir, keyName);
@@ -56,33 +56,33 @@ export class DeployService {
             if (fs.existsSync(keyPath)) {
               const keyContent = fs.readFileSync(keyPath, 'utf-8');
               const firstLine = keyContent.split('\n')[0];
-              this.logger.log(`[SSH] Found key: ${keyPath} (header: "${firstLine}", length=${keyContent.length})`);
+              if (!silent) this.logger.log(`[SSH] Found key: ${keyPath} (header: "${firstLine}", length=${keyContent.length})`);
               config.privateKey = keyContent;
               foundKey = true;
               break;
             } else {
-              this.logger.debug(`[SSH] Key not found: ${keyPath}`);
+              if (!silent) this.logger.debug(`[SSH] Key not found: ${keyPath}`);
             }
           } catch (e) {
-            this.logger.warn(`[SSH] Cannot read ${keyPath}: ${e.message}`);
+            if (!silent) this.logger.warn(`[SSH] Cannot read ${keyPath}: ${e.message}`);
           }
         }
         if (!foundKey && process.env.SSH_AUTH_SOCK) {
           config.agent = process.env.SSH_AUTH_SOCK;
-          this.logger.log(`[SSH] Using SSH agent: ${process.env.SSH_AUTH_SOCK}`);
+          if (!silent) this.logger.log(`[SSH] Using SSH agent: ${process.env.SSH_AUTH_SOCK}`);
         }
         if (!foundKey && !process.env.SSH_AUTH_SOCK) {
-          this.logger.warn(`[SSH] No authentication method available. Connection will likely fail.`);
+          if (!silent) this.logger.warn(`[SSH] No authentication method available. Connection will likely fail.`);
         }
       }
 
-      this.logger.log(`[SSH] Attempting connection...`);
+      if (!silent) this.logger.log(`[SSH] Attempting connection...`);
 
       conn.on('ready', () => {
-        this.logger.log(`[SSH] Connection established. Executing command...`);
+        if (!silent) this.logger.log(`[SSH] Connection established. Executing command...`);
         conn.exec(command, (err, stream) => {
           if (err) {
-            this.logger.error(`[SSH] exec error: ${err.message}`);
+            if (!silent) this.logger.error(`[SSH] exec error: ${err.message}`);
             conn.end();
             return reject(err);
           }
@@ -90,10 +90,10 @@ export class DeployService {
           stream.on('close', (code, signal) => {
             conn.end();
             if (code !== 0) {
-              this.logger.error(`[SSH] Command exited with code ${code}. Output:\n${output}`);
+              if (!silent) this.logger.error(`[SSH] Command exited with code ${code}. Output:\n${output}`);
               return reject(new Error(`Command exited with code ${code}. Output: ${output}`));
             }
-            this.logger.log(`[SSH] Command completed successfully.`);
+            if (!silent) this.logger.log(`[SSH] Command completed successfully.`);
             resolve(output);
           }).on('data', (data) => {
             output += data;
@@ -102,8 +102,8 @@ export class DeployService {
           });
         });
       }).on('error', (err) => {
-        this.logger.error(`[SSH] Connection error: ${err.message}`);
-        this.logger.error(`[SSH] Error stack: ${err.stack}`);
+        if (!silent) this.logger.error(`[SSH] Connection error: ${err.message}`);
+        if (!silent) this.logger.error(`[SSH] Error stack: ${err.stack}`);
         reject(err);
       }).connect(config);
     });
@@ -160,7 +160,7 @@ export class DeployService {
 
   async pingServer(server: Server): Promise<boolean> {
     try {
-      await this.executeSshCommand(server, 'echo "pong"');
+      await this.executeSshCommand(server, 'echo "pong"', true);
       return true;
     } catch (e) {
       return false;
@@ -169,7 +169,7 @@ export class DeployService {
 
   async getContainerStatus(server: Server, containerName: string): Promise<string> {
     try {
-      const output = await this.executeSshCommand(server, `docker inspect -f '{{.State.Status}}' ${containerName}`);
+      const output = await this.executeSshCommand(server, `docker inspect -f '{{.State.Status}}' ${containerName}`, true);
       return output.trim();
     } catch (e) {
       return 'down';
