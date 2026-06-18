@@ -332,17 +332,24 @@ const app = {
 
     renderEnvironments() {
         const tbody = document.querySelector('#environments-table tbody');
-        tbody.innerHTML = this.environments.map(e => `
+        tbody.innerHTML = this.environments.map(e => {
+            const masked = '•'.repeat(Math.min(e.value.length, 20));
+            const escapedValue = e.value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+            return `
             <tr>
                 <td><strong>${e.key}</strong></td>
-                <td>${e.value}</td>
+                <td>
+                    <span class="env-value-masked" id="env-masked-${e.id}">${masked}</span>
+                    <span class="env-value-raw" id="env-raw-${e.id}" style="display:none">${escapedValue}</span>
+                    <button class="btn btn-sm btn-secondary" onclick="app.toggleEnvValue(${e.id})" style="margin-left:8px;padding:2px 8px;font-size:11px;">Show</button>
+                </td>
                 <td>${e.description || ''}</td>
                 <td class="actions-cell">
                     <button class="btn btn-sm btn-secondary" onclick="app.editEnvironment(${e.id})">Edit</button>
                     <button class="btn btn-sm btn-danger" onclick="app.deleteEnvironment(${e.id})">Delete</button>
                 </td>
-            </tr>
-        `).join('') || '<tr><td colspan="4">No environments configured.</td></tr>';
+            </tr>`;
+        }).join('') || '<tr><td colspan="4">No environments configured.</td></tr>';
     },
 
     updateServerDropdown() {
@@ -477,11 +484,19 @@ services:
     async handleProjectSubmit(e) {
         e.preventDefault();
         const id = document.getElementById('project-id').value;
+        const composeYaml = document.getElementById('project-compose').value;
+
+        // Validate that compose YAML contains ports mapping
+        if (!composeYaml.includes('ports:') && !composeYaml.includes('ports :')) {
+            alert('docker-compose.yml에 ports 설정이 필요합니다.\n\n예시:\n    ports:\n      - "8080:8080"');
+            return;
+        }
+
         const data = {
             name: document.getElementById('project-name').value,
             dockerImage: document.getElementById('project-image').value,
             containerName: document.getElementById('project-container').value,
-            composeYaml: document.getElementById('project-compose').value,
+            composeYaml: composeYaml,
             githubRepo: document.getElementById('project-github-repo').value || null,
             autoUpdate: document.getElementById('project-auto-update').checked,
             server: { id: document.getElementById('project-server').value }
@@ -603,6 +618,21 @@ services:
             await this.api(`environment/${id}`, 'DELETE');
             this.showToast('Environment deleted.');
             this.fetchEnvironments();
+        }
+    },
+
+    toggleEnvValue(id) {
+        const masked = document.getElementById(`env-masked-${id}`);
+        const raw = document.getElementById(`env-raw-${id}`);
+        const btn = masked.parentElement.querySelector('button');
+        if (raw.style.display === 'none') {
+            raw.style.display = 'inline';
+            masked.style.display = 'none';
+            btn.textContent = 'Hide';
+        } else {
+            raw.style.display = 'none';
+            masked.style.display = 'inline';
+            btn.textContent = 'Show';
         }
     },
 

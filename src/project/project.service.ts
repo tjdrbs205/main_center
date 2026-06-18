@@ -33,6 +33,13 @@ export class ProjectService {
 
   async update(id: number, projectData: Partial<Project>): Promise<Project> {
     const project = await this.findOne(id);
+
+    // Clear existing ManyToMany environments to avoid UNIQUE constraint errors
+    if (projectData.environments !== undefined) {
+      project.environments = [];
+      await this.projectRepository.save(project);
+    }
+
     const updated = this.projectRepository.merge(project, projectData);
     return this.projectRepository.save(updated);
   }
