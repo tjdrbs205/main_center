@@ -86,6 +86,7 @@ body {
     border: 1px solid var(--border-glass);
     border-radius: 16px;
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
 }
 
 /* Sidebar */
@@ -252,6 +253,13 @@ body {
 .data-table {
     width: 100%;
     border-collapse: collapse;
+    min-width: 700px;
+}
+
+.data-table th:last-child,
+.data-table td:last-child {
+    width: 200px;
+    min-width: 200px;
 }
 
 .data-table th, .data-table td {
@@ -274,7 +282,10 @@ body {
 
 .actions-cell {
     display: flex;
-    gap: 8px;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: nowrap;
+    white-space: nowrap;
 }
 
 /* Forms & Inputs */
