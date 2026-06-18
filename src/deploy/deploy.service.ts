@@ -123,11 +123,14 @@ export class DeployService {
       throw new Error(`Project ${project.name} does not have a docker-compose.yml defined.`);
     }
 
+    const envBase64 = Buffer.from(envContent).toString('base64');
+    const yamlBase64 = Buffer.from(project.composeYaml).toString('base64');
+
     const commands: string[] = [
       `mkdir -p ${projectDir}`,
       `cd ${projectDir}`,
-      `cat << 'EOF' > .env\n${envContent}\nEOF`,
-      `cat << 'EOF' > docker-compose.yml\n${project.composeYaml}\nEOF`
+      `echo '${envBase64}' | base64 -d > .env`,
+      `echo '${yamlBase64}' | base64 -d > docker-compose.yml`,
     ];
 
     try {

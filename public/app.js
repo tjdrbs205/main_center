@@ -110,7 +110,9 @@ const app = {
         try {
             const res = await fetch(`/api/${endpoint}`, options);
             if (!res.ok) throw new Error(await res.text());
-            return await res.json();
+            const text = await res.text();
+            if (!text) return {};
+            try { return JSON.parse(text); } catch { return { raw: text }; }
         } catch (e) {
             this.showToast(`Error: ${e.message}`, true);
             throw e;

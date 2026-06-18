@@ -51,7 +51,7 @@ export class ProjectController {
     if (project.updateAvailable) {
         await this.projectService.update(+id, { updateAvailable: false });
     }
-    return result;
+    return { success: true, message: 'Deployment completed successfully.', output: result || '' };
   }
 
   @Delete(':id')
