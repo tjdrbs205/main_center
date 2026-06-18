@@ -113,7 +113,7 @@ export class DeployService {
 
   async deployProject(project: Project, envVars: Environment[]) {
     this.logger.log(`Deploying project ${project.name} to ${project.server.ipOrHostname}...`);
-    const projectDir = `~/.main_center_projects/${project.containerName}`;
+    const projectDir = `/opt/main_center/${project.containerName}`;
     
     // Build .env content
     const envContent = envVars.map(e => `${e.key}="${e.value.replace(/"/g, '\\"')}"`).join('\n');
@@ -127,26 +127,42 @@ export class DeployService {
     const yamlBase64 = Buffer.from(project.composeYaml).toString('base64');
 
     const commands: string[] = [
+      `echo "[DEPLOY STEP 1] mkdir -p ${projectDir}"`,
       `mkdir -p ${projectDir}`,
+      `echo "[DEPLOY STEP 2] cd ${projectDir}"`,
       `cd ${projectDir}`,
+      `echo "[DEPLOY STEP 3] pwd=$(pwd)"`,
+      `pwd`,
+      `echo "[DEPLOY STEP 4] Writing .env"`,
       `echo '${envBase64}' | base64 -d > .env`,
+      `echo "[DEPLOY STEP 5] Writing docker-compose.yml"`,
       `echo '${yamlBase64}' | base64 -d > docker-compose.yml`,
+      `echo "[DEPLOY STEP 6] Verifying files:"`,
+      `ls -la .env docker-compose.yml`,
     ];
 
     try {
       const ghcrUser = await this.settingService.getValue('GHCR_USERNAME');
       const ghcrToken = await this.settingService.getValue('GHCR_TOKEN');
       if (ghcrUser && ghcrToken) {
-        commands.push(`echo "${ghcrToken}" | docker login ghcr.io -u ${ghcrUser} --password-stdin`);
+        commands.push(
+          `echo "[DEPLOY STEP 7] Docker login"`,
+          `echo "${ghcrToken}" | docker login ghcr.io -u ${ghcrUser} --password-stdin`,
+        );
       }
     } catch (e) {
       this.logger.warn('Failed to fetch GHCR credentials from settings.', e);
     }
     commands.push(
-      `docker compose down --remove-orphans`,
+      `echo "[DEPLOY STEP 8] docker compose down"`,
+      `(docker compose down --remove-orphans 2>/dev/null || true)`,
+      `echo "[DEPLOY STEP 9] docker compose pull"`,
       `docker compose pull`,
+      `echo "[DEPLOY STEP 10] docker compose up -d"`,
       `docker compose up -d`,
-      `docker image prune -af`
+      `echo "[DEPLOY STEP 11] docker image prune"`,
+      `docker image prune -af`,
+      `echo "[DEPLOY COMPLETE]"`,
     );
 
     const fullCommand = commands.join(' && ');
