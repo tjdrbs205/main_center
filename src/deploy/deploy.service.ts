@@ -113,7 +113,7 @@ export class DeployService {
 
   async deployProject(project: Project, envVars: Environment[]) {
     this.logger.log(`Deploying project ${project.name} to ${project.server.ipOrHostname}...`);
-    const projectDir = `/opt/main_center/${project.containerName}`;
+    const projectDir = '$HOME/main_center/' + project.containerName;
     
     // Build .env content
     const envContent = envVars.map(e => `${e.key}="${e.value.replace(/"/g, '\\"')}"`).join('\n');
