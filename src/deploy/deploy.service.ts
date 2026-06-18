@@ -143,8 +143,10 @@ export class DeployService {
       this.logger.warn('Failed to fetch GHCR credentials from settings.', e);
     }
     commands.push(
+      `docker compose down --remove-orphans`,
       `docker compose pull`,
-      `docker compose up -d`
+      `docker compose up -d`,
+      `docker image prune -af`
     );
 
     const fullCommand = commands.join(' && ');
